@@ -1,0 +1,874 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Prestamista Pro</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#0f0f0f;--s1:#1a1a1a;--s2:#222;--b1:#2a2a2a;--b2:#383838;--tx:#f0f0f0;--t2:#999;--t3:#555;--ac:#c8f060;--ac2:#a8d040;--red:#ff5f5f;--red-bg:#2a1414;--yl:#f0a040;--yl-bg:#2a1d09;--gr:#50d090;--gr-bg:#0a2419;--bl:#60a8f0;--bl-bg:#0a1928;--r:10px;--rs:6px;--mono:'DM Mono',monospace;--sans:'DM Sans',sans-serif}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--tx);font-family:var(--sans);font-size:14px;min-height:100vh}
+/* LOGIN */
+.login-wrap{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:1rem}
+.login-box{background:var(--s1);border:1px solid var(--b2);border-radius:var(--r);padding:2.5rem 2rem;width:100%;max-width:380px;text-align:center}
+.login-logo{font-size:11px;color:var(--ac);font-family:var(--mono);letter-spacing:.1em;text-transform:uppercase;margin-bottom:8px}
+.login-title{font-size:22px;font-weight:600;margin-bottom:6px}
+.login-sub{font-size:13px;color:var(--t2);margin-bottom:2rem}
+.login-btn{display:flex;align-items:center;justify-content:center;gap:10px;width:100%;padding:12px;background:var(--s2);border:1px solid var(--b2);border-radius:var(--rs);color:var(--tx);font-size:14px;cursor:pointer;font-family:var(--sans);transition:all .15s}
+.login-btn:hover{background:#2a2a2a;border-color:var(--ac)}
+.login-btn svg{width:20px;height:20px}
+/* PIN */
+.pin-wrap{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:1rem}
+.pin-box{background:var(--s1);border:1px solid var(--b2);border-radius:var(--r);padding:2rem;width:100%;max-width:340px;text-align:center}
+.pin-title{font-size:16px;font-weight:500;margin-bottom:6px}
+.pin-sub{font-size:12px;color:var(--t2);margin-bottom:1.5rem}
+.pin-dots{display:flex;justify-content:center;gap:12px;margin-bottom:1.5rem}
+.pin-dot{width:14px;height:14px;border-radius:50%;background:var(--b2);border:1px solid var(--b1);transition:all .15s}
+.pin-dot.filled{background:var(--ac);border-color:var(--ac)}
+.pin-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;max-width:220px;margin:0 auto}
+.pin-key{padding:14px;background:var(--s2);border:1px solid var(--b1);border-radius:var(--rs);font-size:18px;font-family:var(--mono);cursor:pointer;transition:all .15s}
+.pin-key:hover{background:var(--b1);border-color:var(--b2)}
+.pin-key:active{transform:scale(.95)}
+.pin-err{color:var(--red);font-size:12px;margin-top:.8rem;font-family:var(--mono);min-height:18px}
+/* APP SHELL */
+.shell{display:flex;min-height:100vh}
+.sidebar{width:210px;background:var(--s1);border-right:1px solid var(--b1);display:flex;flex-direction:column;flex-shrink:0}
+.logo{padding:1.25rem;border-bottom:1px solid var(--b1)}
+.logo-tag{font-size:10px;color:var(--ac);font-family:var(--mono);letter-spacing:.1em;text-transform:uppercase;margin-bottom:3px}
+.logo-n{font-size:15px;font-weight:600}
+.nav{flex:1;padding:.5rem 0}
+.ni{display:flex;align-items:center;gap:9px;padding:10px 1.1rem;font-size:13px;color:var(--t2);cursor:pointer;border-left:2px solid transparent;transition:all .15s}
+.ni:hover{color:var(--tx);background:var(--s2)}
+.ni.on{color:var(--ac);border-left-color:var(--ac);background:rgba(200,240,96,.06)}
+.ni svg{width:15px;height:15px;flex-shrink:0}
+.sfooter{padding:.9rem 1.1rem;border-top:1px solid var(--b1);font-size:10px;color:var(--t3);font-family:var(--mono)}
+.main{flex:1;display:flex;flex-direction:column;min-width:0}
+.topbar{padding:1rem 1.75rem;border-bottom:1px solid var(--b1);display:flex;align-items:center;justify-content:space-between}
+.page-t{font-size:17px;font-weight:500}
+.user-pill{font-size:11px;color:var(--t2);font-family:var(--mono);background:var(--s2);padding:4px 10px;border-radius:20px;border:1px solid var(--b1);cursor:pointer}
+.user-pill:hover{border-color:var(--red);color:var(--red)}
+.content{flex:1;overflow-y:auto;padding:1.75rem}
+.sec{display:none}.sec.on{display:block}
+/* Metrics */
+.mets{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-bottom:1.5rem}
+.met{background:var(--s1);border:1px solid var(--b1);border-radius:var(--r);padding:1rem 1.1rem}
+.met-l{font-size:10px;color:var(--t3);font-family:var(--mono);text-transform:uppercase;letter-spacing:.06em;margin-bottom:5px}
+.met-v{font-size:21px;font-weight:500;font-family:var(--mono)}
+.met-s{font-size:11px;color:var(--t2);margin-top:3px}
+/* Cards */
+.card{background:var(--s1);border:1px solid var(--b1);border-radius:var(--r);padding:1.1rem 1.25rem;margin-bottom:10px}
+/* Badges */
+.badge{font-size:10px;padding:3px 8px;border-radius:4px;font-family:var(--mono);white-space:nowrap}
+.b-ok{background:var(--gr-bg);color:var(--gr)}
+.b-mora{background:var(--red-bg);color:var(--red)}
+.b-paid{background:var(--bl-bg);color:var(--bl)}
+/* Chips */
+.chip{font-size:10px;padding:2px 7px;border-radius:4px;font-family:var(--mono)}
+.chi{background:var(--bl-bg);color:var(--bl)}
+.cha{background:var(--gr-bg);color:var(--gr)}
+.chm{background:var(--red-bg);color:var(--red)}
+/* Buttons */
+.btn{padding:7px 14px;font-size:12px;border-radius:var(--rs);cursor:pointer;border:1px solid var(--b2);background:var(--s2);color:var(--tx);font-family:var(--sans);transition:all .15s}
+.btn:hover{background:#2e2e2e}
+.btn-ac{background:var(--ac);color:#0f0f0f;border-color:var(--ac);font-weight:600}
+.btn-ac:hover{background:var(--ac2)}
+.btn-red{color:var(--red);border-color:var(--red-bg)}.btn-red:hover{background:var(--red-bg)}
+.btn-gr{color:var(--gr);border-color:var(--gr-bg)}.btn-gr:hover{background:var(--gr-bg)}
+.btn-yl{color:var(--yl);border-color:var(--yl-bg)}.btn-yl:hover{background:var(--yl-bg)}
+.btn-sm{padding:4px 10px;font-size:11px}
+.acts{display:flex;gap:7px;margin-top:11px;flex-wrap:wrap}
+/* Forms */
+.frow{display:grid;grid-template-columns:1fr 1fr;gap:11px;margin-bottom:11px}
+.frow1{margin-bottom:11px}
+.fg{display:flex;flex-direction:column;gap:4px}
+.fg label{font-size:10px;color:var(--t3);font-family:var(--mono);text-transform:uppercase;letter-spacing:.06em}
+.fg input,.fg select,.fg textarea{background:var(--s2);border:1px solid var(--b1);border-radius:var(--rs);color:var(--tx);padding:8px 11px;font-size:13px;font-family:var(--sans);width:100%}
+.fg input:focus,.fg select:focus{outline:none;border-color:var(--ac)}
+.fg input::placeholder{color:var(--t3)}
+select option{background:var(--s2)}
+/* Deudor card */
+.dcard{background:var(--s1);border:1px solid var(--b1);border-radius:var(--r);padding:1.1rem 1.25rem;margin-bottom:9px;transition:border-color .15s}
+.dcard:hover{border-color:var(--b2)}
+.dh{display:flex;align-items:center;gap:11px;margin-bottom:13px}
+.av{width:40px;height:40px;border-radius:50%;background:var(--s2);border:1px solid var(--b1);display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:600;color:var(--ac);flex-shrink:0;overflow:hidden}
+.av img{width:100%;height:100%;object-fit:cover}
+.kv-g{display:grid;grid-template-columns:repeat(3,1fr);gap:7px}
+.kv-l{font-size:10px;color:var(--t3);font-family:var(--mono);text-transform:uppercase;margin-bottom:2px}
+.kv-v{font-size:13px;font-weight:500;font-family:var(--mono)}
+/* Movimientos */
+.mov-row{display:flex;align-items:center;gap:9px;padding:7px 0;border-bottom:1px solid var(--b1);font-size:12px}
+.mov-row:last-child{border-bottom:none}
+/* Misc */
+hr{border:none;border-top:1px solid var(--b1);margin:1.1rem 0}
+.sec-t{font-size:11px;font-weight:500;color:var(--t2);font-family:var(--mono);text-transform:uppercase;letter-spacing:.08em;margin-bottom:.9rem}
+.empty{text-align:center;padding:2.5rem;color:var(--t3);font-size:12px;border:1px dashed var(--b1);border-radius:var(--r)}
+.ibox{background:var(--s2);border:1px solid var(--b1);border-radius:var(--rs);padding:9px 12px;font-size:11px;color:var(--t2);margin-bottom:11px;font-family:var(--mono)}
+.alert-r{background:var(--red-bg);color:var(--red);border:1px solid rgba(255,95,95,.2);border-radius:var(--rs);padding:9px 13px;font-size:12px;margin-bottom:1rem}
+.alert-g{background:var(--gr-bg);color:var(--gr);border-radius:var(--rs);padding:9px 13px;font-size:12px;margin-bottom:1rem}
+.foto-up{width:68px;height:68px;border-radius:50%;background:var(--s2);border:1px dashed var(--b2);display:flex;align-items:center;justify-content:center;cursor:pointer;overflow:hidden;transition:border-color .15s}
+.foto-up:hover{border-color:var(--ac)}
+.foto-up img{width:100%;height:100%;object-fit:cover}
+/* Modal */
+.mo{position:fixed;inset:0;background:rgba(0,0,0,.75);display:flex;align-items:center;justify-content:center;z-index:200;padding:1rem}
+.mo.hidden{display:none}
+.mo-box{background:var(--s1);border:1px solid var(--b2);border-radius:var(--r);padding:1.4rem;width:100%;max-width:430px}
+.mo-t{font-size:15px;font-weight:500;margin-bottom:1.1rem}
+.mo-acts{display:flex;gap:8px;justify-content:flex-end;margin-top:1.25rem}
+/* Loading */
+.loading{display:flex;align-items:center;justify-content:center;padding:3rem;color:var(--t3);font-family:var(--mono);font-size:12px;gap:8px}
+.spinner{width:16px;height:16px;border:2px solid var(--b2);border-top-color:var(--ac);border-radius:50%;animation:spin .7s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.tag-colab{font-size:10px;padding:2px 7px;background:rgba(200,240,96,.1);color:var(--ac);border-radius:4px;font-family:var(--mono)}
+@media(max-width:680px){.sidebar{display:none}.kv-g{grid-template-columns:repeat(2,1fr)}.frow{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+
+<!-- LOGIN -->
+<div id="login-screen" class="login-wrap">
+  <div class="login-box">
+    <div class="login-logo">Prestamista Pro</div>
+    <div class="login-title">David Arango</div>
+    <div class="login-sub">Inicia sesión para continuar</div>
+    <div id="login-form">
+      <div style="margin-bottom:12px">
+        <input id="login-email" type="email" placeholder="tu@correo.com" style="width:100%;padding:11px 14px;background:#1a1a1a;border:1px solid #383838;border-radius:6px;color:#f0f0f0;font-size:14px;font-family:'DM Sans',sans-serif">
+      </div>
+      <button class="login-btn" onclick="loginMagicLink()">
+        <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+        Enviar link de acceso
+      </button>
+      <div id="login-msg" style="margin-top:12px;font-size:12px;color:#999;font-family:'DM Mono',monospace;min-height:18px"></div>
+    </div>
+  </div>
+</div>
+
+<!-- PIN -->
+<div id="pin-screen" class="pin-wrap" style="display:none">
+  <div class="pin-box">
+    <div class="pin-title" id="pin-title">Crear PIN de acceso</div>
+    <div class="pin-sub" id="pin-sub">Elige un PIN de 4 dígitos para acceso rápido</div>
+    <div class="pin-dots" id="pin-dots">
+      <div class="pin-dot" id="d0"></div>
+      <div class="pin-dot" id="d1"></div>
+      <div class="pin-dot" id="d2"></div>
+      <div class="pin-dot" id="d3"></div>
+    </div>
+    <div class="pin-grid">
+      <div class="pin-key" onclick="pinKey('1')">1</div>
+      <div class="pin-key" onclick="pinKey('2')">2</div>
+      <div class="pin-key" onclick="pinKey('3')">3</div>
+      <div class="pin-key" onclick="pinKey('4')">4</div>
+      <div class="pin-key" onclick="pinKey('5')">5</div>
+      <div class="pin-key" onclick="pinKey('6')">6</div>
+      <div class="pin-key" onclick="pinKey('7')">7</div>
+      <div class="pin-key" onclick="pinKey('8')">8</div>
+      <div class="pin-key" onclick="pinKey('9')">9</div>
+      <div class="pin-key" onclick="pinClear()" style="font-size:13px">⌫</div>
+      <div class="pin-key" onclick="pinKey('0')">0</div>
+      <div class="pin-key" onclick="pinKey('')" style="opacity:0;cursor:default"></div>
+    </div>
+    <div class="pin-err" id="pin-err"></div>
+  </div>
+</div>
+
+<!-- APP -->
+<div id="app-screen" class="shell" style="display:none">
+  <aside class="sidebar">
+    <div class="logo">
+      <div class="logo-tag">Prestamista Pro</div>
+      <div class="logo-n">David Arango</div>
+    </div>
+    <nav class="nav" id="sidebar-nav"></nav>
+    <div class="sfooter">Digital Adspaces · v2.0</div>
+  </aside>
+  <div class="main">
+    <div class="topbar">
+      <div class="page-t" id="page-t">Resumen</div>
+      <div class="user-pill" id="user-pill" onclick="cerrarSesion()" title="Cerrar sesión">...</div>
+    </div>
+    <div class="content" id="content">
+      <div class="loading"><div class="spinner"></div>Cargando...</div>
+    </div>
+  </div>
+</div>
+
+<div class="mo hidden" id="modal" onclick="closeMo(event)">
+  <div class="mo-box" id="mo-box">
+    <div class="mo-t" id="mo-t"></div>
+    <div id="mo-body"></div>
+    <div class="mo-acts" id="mo-acts"></div>
+  </div>
+</div>
+
+<script>
+// ── SUPABASE CONFIG ────────────────────────────────────────
+const SUPA_URL = 'https://ecuziesjyivcsooltwyh.supabase.co';
+const SUPA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVjdXppZXNqeWl2Y3Nvb2x0d3loIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDc4NjI2MzEsImV4cCI6MjA2MzQzODYzMX0.Iy_L9vRqzQkXpMnb8dU2eVsT3wFhKjN6oP1cXmAqYrs';
+const ADMIN_EMAIL = 'davidarango89s@gmail.com';
+
+const sb = supabase.createClient(SUPA_URL, SUPA_KEY);
+
+// ── STATE ──────────────────────────────────────────────────
+let S = { user: null, isAdmin: false, colab: null, prestamos: [], tab: 'dash', detId: null };
+let fotoB64 = null;
+
+// ── UTILS ──────────────────────────────────────────────────
+const cop = n => '$' + Math.round(n).toLocaleString('es-CO');
+const fdate = s => { if(!s) return '—'; const d = new Date(s.includes('T') ? s : s+'T12:00:00'); return d.toLocaleDateString('es-CO',{day:'2-digit',month:'short',year:'numeric'}); };
+const today = () => new Date().toISOString().split('T')[0];
+const ini = n => (n||'?').split(' ').slice(0,2).map(w=>w[0]).join('').toUpperCase();
+const slugify = s => s.toLowerCase().replace(/\s+/g,'_').replace(/[^a-z0-9_]/g,'').slice(0,18)+'_'+Date.now();
+
+// ── FINANCE ───────────────────────────────────────────────
+function getSaldo(p){
+  let s = parseFloat(p.monto)||0;
+  (p.movs||[]).filter(m=>m.tipo==='abono').forEach(m=>s-=parseFloat(m.monto)||0);
+  return Math.max(0,s);
+}
+function getInteres(p){ return Math.round(getSaldo(p)*((parseFloat(p.tasa)||0)/100)); }
+function getInteresTotal(p){ return (p.movs||[]).filter(m=>m.tipo==='interes'||m.tipo==='mora').reduce((a,m)=>a+(parseFloat(m.monto)||0),0); }
+function getProxPago(p){
+  const pagados = (p.movs||[]).filter(m=>m.tipo==='interes').length;
+  const d = new Date((p.fecha||today())+'T12:00:00');
+  d.setMonth(d.getMonth()+pagados+1);
+  if(p.diapago) d.setDate(Math.min(parseInt(p.diapago)||1,28));
+  return d.toISOString().split('T')[0];
+}
+function getMesesMora(p){
+  if(getSaldo(p)===0) return 0;
+  const prox = getProxPago(p);
+  if(prox >= today()) return 0;
+  const d1=new Date(prox+'T12:00:00'), d2=new Date(today()+'T12:00:00');
+  return Math.max(1, Math.round((d2-d1)/(864e5*30)));
+}
+function getMora(p){ return Math.round(getSaldo(p)*((parseFloat(p.tasa_mora)||1.5)/100)*getMesesMora(p)); }
+function status(p){ if(getSaldo(p)===0)return'paid'; if(getMesesMora(p)>0)return'mora'; return'ok'; }
+function statusBadge(p){
+  const s=status(p);
+  if(s==='paid') return '<span class="badge b-paid">Pagado</span>';
+  if(s==='mora') return `<span class="badge b-mora">Mora · ${getMesesMora(p)}m</span>`;
+  return '<span class="badge b-ok">Al día</span>';
+}
+
+// ── AUTH ──────────────────────────────────────────────────
+const NAVS_ADMIN = [
+  {id:'dash',  label:'Resumen',        path:'M3 3h7v7H3zm11 0h7v7h-7zM3 14h7v7H3zm11 7v-7h7v7h-7z'},
+  {id:'nuevo', label:'Nuevo préstamo', path:'M12 5v14M5 12h14'},
+  {id:'lista', label:'Deudores',       path:'M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M9 3a4 4 0 1 0 0 8 4 4 0 0 0 0-8zm8 8l2 2 4-4'},
+  {id:'cobros',label:'Cobros del mes', path:'M8 2v4M16 2v4M3 10h18M5 4h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z'},
+  {id:'colabs',label:'Colaboradores',  path:'M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5s-3 1.34-3 3 1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z'},
+  {id:'config',label:'Mi perfil',      path:'M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z'},
+];
+const NAVS_COLAB = [
+  {id:'dash',  label:'Mis préstamos',  path:'M3 3h7v7H3zm11 0h7v7h-7zM3 14h7v7H3zm11 7v-7h7v7h-7z'},
+  {id:'cobros',label:'Cobros del mes', path:'M8 2v4M16 2v4M3 10h18M5 4h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z'},
+  {id:'miscom',label:'Mis comisiones', path:'M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z'},
+];
+const TITLES = {dash:'Resumen',nuevo:'Nuevo préstamo',lista:'Deudores',cobros:'Cobros del mes',colabs:'Colaboradores',config:'Mi perfil',det:'Detalle',miscom:'Mis comisiones'};
+
+async function loginMagicLink(){
+  const email = document.getElementById("login-email")?.value.trim();
+  if(!email){ alert("Ingresa tu correo."); return; }
+  const msg = document.getElementById("login-msg");
+  msg.textContent = "Enviando...";
+  const {error} = await sb.auth.signInWithOtp({ email, options:{ emailRedirectTo: window.location.href } });
+  if(error){ msg.style.color="#ff5f5f"; msg.textContent = "Error: "+error.message; }
+  else { msg.style.color="#50d090"; msg.textContent = "✓ Link enviado. Revisa tu bandeja de entrada y haz clic en el enlace."; document.getElementById("login-form").style.opacity="0.5"; document.getElementById("login-form").style.pointerEvents="none"; }
+}
+
+async function cerrarSesion(){
+  if(!confirm('¿Cerrar sesión?')) return;
+  localStorage.removeItem('prest_pin');
+  await sb.auth.signOut();
+  location.reload();
+}
+
+// ── PIN ───────────────────────────────────────────────────
+let pinBuffer = '';
+let pinMode = 'create'; // 'create' | 'confirm' | 'verify'
+let pinFirst = '';
+
+function showPin(mode){
+  pinMode = mode; pinBuffer = ''; pinFirst = '';
+  document.getElementById('login-screen').style.display = 'none';
+  document.getElementById('app-screen').style.display = 'none';
+  document.getElementById('pin-screen').style.display = 'flex';
+  if(mode==='create'){
+    document.getElementById('pin-title').textContent = 'Crear PIN de acceso';
+    document.getElementById('pin-sub').textContent = 'Elige un PIN de 4 dígitos para acceso rápido';
+  } else {
+    document.getElementById('pin-title').textContent = 'Ingresa tu PIN';
+    document.getElementById('pin-sub').textContent = 'PIN de 4 dígitos para acceder';
+  }
+  updateDots();
+}
+
+function pinKey(d){
+  if(pinBuffer.length >= 4) return;
+  pinBuffer += d;
+  updateDots();
+  if(pinBuffer.length === 4) setTimeout(processPin, 200);
+}
+
+function pinClear(){ pinBuffer = pinBuffer.slice(0,-1); updateDots(); }
+
+function updateDots(){
+  for(let i=0;i<4;i++){
+    document.getElementById('d'+i).classList.toggle('filled', i < pinBuffer.length);
+  }
+}
+
+function processPin(){
+  document.getElementById('pin-err').textContent = '';
+  if(pinMode === 'create'){
+    pinFirst = pinBuffer; pinBuffer = '';
+    pinMode = 'confirm';
+    document.getElementById('pin-title').textContent = 'Confirma tu PIN';
+    document.getElementById('pin-sub').textContent = 'Ingresa el mismo PIN de nuevo';
+    updateDots();
+  } else if(pinMode === 'confirm'){
+    if(pinBuffer === pinFirst){
+      localStorage.setItem('prest_pin', btoa(pinBuffer));
+      startApp();
+    } else {
+      document.getElementById('pin-err').textContent = 'Los PINs no coinciden. Intenta de nuevo.';
+      pinBuffer = ''; pinFirst = ''; pinMode = 'create';
+      document.getElementById('pin-title').textContent = 'Crear PIN de acceso';
+      document.getElementById('pin-sub').textContent = 'Elige un PIN de 4 dígitos';
+      updateDots();
+    }
+  } else { // verify
+    const saved = atob(localStorage.getItem('prest_pin')||'');
+    if(pinBuffer === saved){
+      startApp();
+    } else {
+      document.getElementById('pin-err').textContent = 'PIN incorrecto.';
+      pinBuffer = ''; updateDots();
+    }
+  }
+}
+
+// ── APP START ─────────────────────────────────────────────
+async function startApp(){
+  document.getElementById('pin-screen').style.display = 'none';
+  document.getElementById('login-screen').style.display = 'none';
+  document.getElementById('app-screen').style.display = 'flex';
+  document.getElementById('user-pill').textContent = S.user.email + ' · salir';
+  const navs = S.isAdmin ? NAVS_ADMIN : NAVS_COLAB;
+  document.getElementById('sidebar-nav').innerHTML = navs.map(n=>`
+    <div class="ni" id="nav-${n.id}" onclick="nav('${n.id}')">
+      <svg fill="none" stroke="currentColor" stroke-width="1.7" viewBox="0 0 24 24"><path d="${n.path}"/></svg>
+      ${n.label}
+    </div>`).join('');
+  await loadPrestamos();
+  nav('dash');
+}
+
+async function loadPrestamos(){
+  let q = sb.from('prestamos').select('*, movimientos(*)');
+  if(!S.isAdmin) q = q.eq('colaborador_email', S.user.email);
+  const {data, error} = await q.order('creado_en', {ascending:false});
+  if(error){ console.error(error); return; }
+  S.prestamos = (data||[]).map(p=>({...p, movs: p.movimientos||[]}));
+}
+
+// ── NAV ───────────────────────────────────────────────────
+async function nav(s){
+  S.tab = s;
+  document.querySelectorAll('.ni').forEach(x=>x.classList.remove('on'));
+  const ni = document.getElementById('nav-'+s); if(ni) ni.classList.add('on');
+  document.getElementById('page-t').textContent = TITLES[s]||'';
+  if(s==='dash') renderDash();
+  else if(s==='nuevo') renderNuevo();
+  else if(s==='lista') renderLista();
+  else if(s==='cobros') renderCobros();
+  else if(s==='colabs') renderColabs();
+  else if(s==='config') renderConfig();
+  else if(s==='miscom') renderMisComisiones();
+}
+
+function setContent(html){ document.getElementById('content').innerHTML = html; }
+function loading(){ setContent('<div class="loading"><div class="spinner"></div>Cargando...</div>'); }
+
+// ── DASHBOARD ─────────────────────────────────────────────
+function renderDash(){
+  const act = S.prestamos.filter(p=>getSaldo(p)>0);
+  const totalCap = act.reduce((a,p)=>a+getSaldo(p),0);
+  const totalInt = act.reduce((a,p)=>a+getInteres(p),0);
+  const totalMora = act.reduce((a,p)=>a+getMora(p),0);
+  const totalCob = S.prestamos.reduce((a,p)=>a+getInteresTotal(p),0);
+  const enMora = act.filter(p=>getMesesMora(p)>0).length;
+  const moraAlert = enMora ? `<div class="alert-r">⚠ En mora: ${act.filter(p=>getMesesMora(p)>0).map(p=>p.nombre).join(', ')}</div>` : '';
+  setContent(`
+    <div class="mets">
+      <div class="met"><div class="met-l">Capital en calle</div><div class="met-v" style="color:var(--ac)">${cop(totalCap)}</div><div class="met-s">${act.length} activos</div></div>
+      <div class="met"><div class="met-l">Interés mes actual</div><div class="met-v">${cop(totalInt)}</div><div class="met-s">Sobre saldos vigentes</div></div>
+      <div class="met"><div class="met-l">Mora acumulada</div><div class="met-v" style="color:${totalMora>0?'var(--red)':'var(--tx)'}">${cop(totalMora)}</div><div class="met-s">${enMora} en mora</div></div>
+      <div class="met"><div class="met-l">Total cobrado</div><div class="met-v" style="color:var(--gr)">${cop(totalCob)}</div><div class="met-s">Histórico</div></div>
+    </div>
+    ${moraAlert}
+    <p class="sec-t">Préstamos activos</p>
+    ${act.length ? act.map(p=>dcard(p)).join('') : '<div class="empty">Sin préstamos activos.</div>'}
+  `);
+}
+
+function dcard(p){
+  const saldo=getSaldo(p), interes=getInteres(p), mora=getMora(p), prox=getProxPago(p);
+  const colabTag = p.colaborador_email ? `<span class="tag-colab">${p.colaborador_email.split('@')[0]}</span>` : '';
+  return `<div class="dcard">
+    <div class="dh">
+      <div class="av">${p.foto?`<img src="${p.foto}" alt="">`:ini(p.nombre)}</div>
+      <div style="flex:1">
+        <div style="font-size:14px;font-weight:500">${p.nombre} ${colabTag}</div>
+        <div style="font-size:11px;color:var(--t2);margin-top:2px;font-family:var(--mono)">${p.telefono||''} ${p.cc?'· '+p.cc:''} · #${p.num_pagare||'—'}</div>
+      </div>
+      ${statusBadge(p)}
+    </div>
+    <div class="kv-g">
+      <div><div class="kv-l">Capital inicial</div><div class="kv-v">${cop(p.monto)}</div></div>
+      <div><div class="kv-l">Saldo actual</div><div class="kv-v">${cop(saldo)}</div></div>
+      <div><div class="kv-l">Tasa</div><div class="kv-v">${p.tasa}% e.m.</div></div>
+      <div><div class="kv-l">Interés este mes</div><div class="kv-v" style="color:var(--gr)">${cop(interes)}</div></div>
+      ${mora>0?`<div><div class="kv-l">Mora</div><div class="kv-v" style="color:var(--red)">${cop(mora)}</div></div>`:'<div></div>'}
+      <div><div class="kv-l">Próximo pago</div><div class="kv-v" style="font-size:11px">${fdate(prox)}</div></div>
+    </div>
+    <div class="acts">
+      <button class="btn btn-sm btn-gr" onclick="openDet('${p.id}')">Ver detalle</button>
+      ${saldo>0?`<button class="btn btn-sm btn-ac" onclick="doInteres('${p.id}')">Cobrar interés</button>`:''}
+      ${saldo>0?`<button class="btn btn-sm" onclick="doAbono('${p.id}')">Abono capital</button>`:''}
+      ${mora>0?`<button class="btn btn-sm btn-yl" onclick="doMora('${p.id}')">Cobrar mora</button>`:''}
+    </div>
+  </div>`;
+}
+
+// ── NUEVO PRÉSTAMO ────────────────────────────────────────
+function renderNuevo(){
+  setContent(`<div class="card">
+    <div style="display:flex;align-items:flex-start;gap:1.25rem;margin-bottom:1.1rem">
+      <div>
+        <div class="fg" style="margin-bottom:5px"><label>Foto</label></div>
+        <div class="foto-up" id="foto-prev" onclick="document.getElementById('foto-inp').click()">
+          <svg width="20" height="20" fill="none" stroke="var(--t3)" stroke-width="1.5" viewBox="0 0 24 24"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+        </div>
+        <input type="file" id="foto-inp" accept="image/*" style="display:none" onchange="loadFoto(this)">
+      </div>
+      <div style="flex:1">
+        <div class="frow">
+          <div class="fg"><label>Nombre completo *</label><input id="n-nom" type="text" placeholder="Carlos Pérez Gómez"></div>
+          <div class="fg"><label>Cédula</label><input id="n-cc" type="text" placeholder="1234567890"></div>
+        </div>
+        <div class="frow">
+          <div class="fg"><label>Teléfono</label><input id="n-tel" type="text" placeholder="300 123 4567"></div>
+          <div class="fg"><label>Dirección</label><input id="n-dir" type="text" placeholder="Cra 45 # 12-34"></div>
+        </div>
+      </div>
+    </div>
+    <hr>
+    <div class="frow">
+      <div class="fg"><label>Monto prestado (COP) *</label><input id="n-monto" type="number" placeholder="300000" oninput="sugerirTasa()"></div>
+      <div class="fg"><label>Tasa de interés mensual (%) *</label><input id="n-tasa" type="number" placeholder="10" step="0.5"></div>
+    </div>
+    <div class="frow">
+      <div class="fg"><label>Fecha del préstamo *</label><input id="n-fecha" type="date" value="${today()}"></div>
+      <div class="fg"><label>Día de pago mensual (1–31)</label><input id="n-dia" type="number" placeholder="21" min="1" max="31"></div>
+    </div>
+    <div class="frow">
+      <div class="fg"><label>% mora mensual (vacío = 1.5%)</label><input id="n-mora" type="number" placeholder="1.5" step="0.5"></div>
+      ${S.isAdmin?'<div class="fg"><label>Email colaborador (opcional)</label><input id="n-colab" type="email" placeholder="colab@gmail.com"></div>':'<div></div>'}
+    </div>
+    <div class="frow1 fg"><label>Número de pagaré</label><input id="n-numpag" type="text" placeholder="${String(S.prestamos.length+1).padStart(3,'0')}"></div>
+    <div id="n-prev" class="ibox" style="display:none"></div>
+    <div class="acts">
+      <button class="btn" onclick="calcular()">Calcular interés</button>
+      <button class="btn btn-ac" onclick="guardar()">✓ Guardar + pagaré</button>
+    </div>
+  </div>`);
+}
+
+function sugerirTasa(){
+  const m=parseFloat(document.getElementById('n-monto')?.value)||0;
+  const t=document.getElementById('n-tasa'); if(!t||t.value)return;
+  if(m<=500000)t.value=10; else if(m<=2000000)t.value=7; else if(m<=5000000)t.value=5; else t.value=3;
+}
+function calcular(){
+  const m=parseFloat(document.getElementById('n-monto')?.value)||0, t=parseFloat(document.getElementById('n-tasa')?.value)||0;
+  if(!m||!t){alert('Ingresa monto y tasa.');return}
+  const box=document.getElementById('n-prev');
+  box.style.display='block';
+  box.innerHTML=`Interés mensual: <strong style="color:var(--ac)">${cop(Math.round(m*(t/100)))}</strong> · Tasa: ${t}% e.m. · Capital: ${cop(m)}`;
+}
+function loadFoto(input){
+  const f=input.files[0]; if(!f)return;
+  const r=new FileReader();
+  r.onload=e=>{fotoB64=e.target.result; document.getElementById('foto-prev').innerHTML=`<img src="${fotoB64}" alt="">`;};
+  r.readAsDataURL(f);
+}
+
+async function guardar(){
+  const nom=document.getElementById('n-nom')?.value.trim();
+  const monto=parseFloat(document.getElementById('n-monto')?.value);
+  const tasa=parseFloat(document.getElementById('n-tasa')?.value);
+  const fecha=document.getElementById('n-fecha')?.value;
+  if(!nom||!monto||!tasa||!fecha){alert('Nombre, monto, tasa y fecha son obligatorios.');return}
+  const colabEl=document.getElementById('n-colab');
+  const row = {
+    id: 'P'+Date.now(),
+    nombre: nom,
+    cc: document.getElementById('n-cc')?.value.trim()||'',
+    telefono: document.getElementById('n-tel')?.value.trim()||'',
+    direccion: document.getElementById('n-dir')?.value.trim()||'',
+    monto, tasa, fecha,
+    diapago: parseInt(document.getElementById('n-dia')?.value)||null,
+    tasa_mora: parseFloat(document.getElementById('n-mora')?.value)||1.5,
+    colaborador_email: S.isAdmin && colabEl ? colabEl.value.trim() : S.user.email,
+    num_pagare: document.getElementById('n-numpag')?.value.trim()||String(S.prestamos.length+1).padStart(3,'0'),
+    foto: fotoB64||''
+  };
+  loading();
+  const {error} = await sb.from('prestamos').insert([row]);
+  if(error){setContent(`<div class="alert-r">Error: ${error.message}</div>`);return}
+  fotoB64=null;
+  await loadPrestamos();
+  const p = S.prestamos.find(x=>x.id===row.id);
+  mostrarPagare(p||row);
+}
+
+function mostrarPagare(p){
+  const d=new Date((p.fecha||today())+'T12:00:00'); d.setMonth(d.getMonth()+1);
+  if(p.diapago) d.setDate(Math.min(parseInt(p.diapago)||1,28));
+  const cfg=JSON.parse(localStorage.getItem('prest_cfg')||'{}');
+  const data={nom:p.nombre,ccDeudor:p.cc||'',tel:p.telefono||'',direccion:p.direccion||'',monto:p.monto,tasa:p.tasa,fecha:p.fecha,diapago:p.diapago||null,fechaPrimerPago:d.toISOString().split('T')[0],prestamista:cfg.nom||'DAVID STEVEN ARANGO RESTREPO',ccPrestamista:cfg.cc||'',numPagare:p.num_pagare||'001',slug:slugify(p.nombre)};
+  showMo('Préstamo guardado ✓',`
+    <div class="alert-g">Guardado correctamente en la base de datos.</div>
+    <p style="color:var(--t2);font-size:12px;margin-bottom:.8rem">Para generar el pagaré Word, copia estos datos y pégalos en el chat con Claude escribiendo:<br><em style="color:var(--ac)">"Generar pagaré Word para: [datos]"</em></p>
+    <div style="background:var(--bg);border:1px solid var(--b1);border-radius:var(--rs);padding:9px;font-family:var(--mono);font-size:10px;word-break:break-all;max-height:100px;overflow-y:auto;color:var(--t2)" id="pag-json">${JSON.stringify(data)}</div>
+    <button class="btn btn-sm" onclick="copiarPagare()" style="margin-top:8px">Copiar datos pagaré</button>
+  `,[{label:'Ir al resumen',action:"closeMo();nav('dash')",cls:'btn btn-ac'}]);
+}
+function copiarPagare(){
+  const txt=document.getElementById('pag-json')?.textContent;
+  if(txt) navigator.clipboard.writeText('Generar pagaré Word para: '+txt).then(()=>alert('Copiado. Pégalo en Claude.'));
+}
+
+// ── LISTA ─────────────────────────────────────────────────
+function renderLista(){
+  setContent(`
+    <p class="sec-t">Todos los deudores (${S.prestamos.length})</p>
+    ${S.prestamos.length ? S.prestamos.map(p=>dcard(p)).join('') : '<div class="empty">Sin préstamos registrados.</div>'}
+  `);
+}
+
+// ── COBROS ────────────────────────────────────────────────
+function renderCobros(){
+  const t=today(); const[ay,am]=t.split('-').map(Number);
+  const filas=S.prestamos.filter(p=>{if(getSaldo(p)===0)return false;const pp=getProxPago(p);const[py,pm]=pp.split('-').map(Number);return py===ay&&pm===am;});
+  const moraExt=S.prestamos.filter(p=>{if(getSaldo(p)===0)return false;const[py,pm]=getProxPago(p).split('-').map(Number);return getMesesMora(p)>0&&!(py===ay&&pm===am);});
+  const mesNom=new Date(t+'T12:00:00').toLocaleDateString('es-CO',{month:'long',year:'numeric'});
+  const tot=filas.reduce((a,p)=>a+getInteres(p),0);
+  let html=`<div class="mets">
+    <div class="met"><div class="met-l">Total intereses mes</div><div class="met-v" style="color:var(--ac)">${cop(tot)}</div></div>
+    <div class="met"><div class="met-l">Cobros pendientes</div><div class="met-v">${filas.length}</div></div>
+  </div><p class="sec-t">Vencen en ${mesNom}</p>`;
+  if(!filas.length) html+='<div class="empty">Sin cobros este mes.</div>';
+  else{ html+='<div class="card">'; filas.forEach(p=>{const mm=getMesesMora(p); html+=`<div class="mov-row"><div style="flex:1.4;font-weight:500">${p.nombre}</div><div style="flex:1;color:var(--t2);font-size:11px;font-family:var(--mono)">${fdate(getProxPago(p))}</div><div style="min-width:95px;text-align:right;font-weight:500;color:var(--gr);font-family:var(--mono)">${cop(getInteres(p))}</div>${mm>0?`<span class="badge b-mora">${mm}m</span>`:''}<button class="btn btn-sm btn-ac" onclick="doInteres('${p.id}')">Cobrar</button></div>`;}); html+='</div>'; }
+  if(moraExt.length){ html+=`<p class="sec-t" style="margin-top:1.5rem">Moras anteriores</p><div class="card">`; moraExt.forEach(p=>{html+=`<div class="mov-row"><div style="flex:1.4;font-weight:500">${p.nombre}</div><div style="color:var(--red);flex:1;font-size:11px;font-family:var(--mono)">${getMesesMora(p)}m mora</div><div style="min-width:95px;text-align:right;font-weight:500;color:var(--red);font-family:var(--mono)">${cop(getMora(p))}</div><button class="btn btn-sm btn-yl" onclick="doMora('${p.id}')">Mora</button><button class="btn btn-sm btn-ac" onclick="doInteres('${p.id}')">Interés</button></div>`;}); html+='</div>'; }
+  setContent(html);
+}
+
+// ── DETALLE ───────────────────────────────────────────────
+function openDet(id){ S.detId=id; S.tab='det'; document.getElementById('page-t').textContent='Detalle'; renderDet(id); }
+function renderDet(id){
+  const p=S.prestamos.find(x=>x.id===id); if(!p)return;
+  const saldo=getSaldo(p),interes=getInteres(p),mora=getMora(p);
+  const chips={interes:'<span class="chip chi">Interés</span>',abono:'<span class="chip cha">Abono capital</span>',mora:'<span class="chip chm">Mora</span>'};
+  const movHtml=(p.movs||[]).length
+    ?(p.movs.slice().sort((a,b)=>b.creado_en>a.creado_en?1:-1).map(m=>`<div class="mov-row">${chips[m.tipo]||''}<span style="flex:1;color:var(--t2);font-family:var(--mono);font-size:11px">${fdate(m.fecha)}</span><span style="font-weight:500;font-family:var(--mono)">${cop(parseFloat(m.monto))}</span>${m.nota?`<span style="color:var(--t3);font-size:11px">${m.nota}</span>`:''}<button class="btn btn-sm btn-red" onclick="delMov('${m.id}','${id}')">×</button></div>`).join(''))
+    :'<div style="color:var(--t3);font-size:12px;padding:.5rem 0;font-family:var(--mono)">Sin movimientos.</div>';
+  setContent(`
+    <button class="btn btn-sm" onclick="nav('lista')" style="margin-bottom:1.1rem">← Volver</button>
+    <div class="card" style="margin-bottom:1.1rem">
+      <div class="dh">
+        <div class="av" style="width:50px;height:50px;font-size:15px">${p.foto?`<img src="${p.foto}" alt="">`:ini(p.nombre)}</div>
+        <div style="flex:1">
+          <div style="font-size:16px;font-weight:500">${p.nombre}</div>
+          <div style="font-size:11px;color:var(--t2);margin-top:2px;font-family:var(--mono)">${[p.telefono,p.cc?'C.C. '+p.cc:'',p.direccion].filter(Boolean).join(' · ')}</div>
+          <div style="font-size:10px;color:var(--t3);margin-top:2px;font-family:var(--mono)">Pagaré #${p.num_pagare||'—'} · ${fdate(p.fecha)} ${p.colaborador_email?'· '+p.colaborador_email:''}</div>
+        </div>
+        ${statusBadge(p)}
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:9px;margin-bottom:1.1rem">
+        <div class="met"><div class="met-l">Capital inicial</div><div class="met-v" style="font-size:16px">${cop(p.monto)}</div></div>
+        <div class="met"><div class="met-l">Saldo actual</div><div class="met-v" style="font-size:16px;color:var(--ac)">${cop(saldo)}</div></div>
+        <div class="met"><div class="met-l">Interés este mes</div><div class="met-v" style="font-size:16px;color:var(--gr)">${cop(interes)}</div></div>
+        ${mora>0?`<div class="met"><div class="met-l">Mora</div><div class="met-v" style="font-size:16px;color:var(--red)">${cop(mora)}</div></div>`:''}
+        <div class="met"><div class="met-l">Total cobrado</div><div class="met-v" style="font-size:16px">${cop(getInteresTotal(p))}</div></div>
+        <div class="met"><div class="met-l">Próximo pago</div><div class="met-v" style="font-size:13px">${fdate(getProxPago(p))}</div></div>
+      </div>
+      <div style="font-size:10px;color:var(--t3);font-family:var(--mono)">Tasa: ${p.tasa}% e.m. · Mora: ${p.tasa_mora||1.5}% mensual</div>
+      <hr>
+      <div class="acts">
+        ${saldo>0?`<button class="btn btn-ac" onclick="doInteres('${id}')">Cobrar interés</button>`:''}
+        ${saldo>0?`<button class="btn btn-gr" onclick="doAbono('${id}')">Abono capital</button>`:''}
+        ${mora>0?`<button class="btn btn-yl" onclick="doMora('${id}')">Cobrar mora</button>`:''}
+        <button class="btn" onclick="mostrarPagare(S.prestamos.find(x=>x.id==='${id}'))">Pagaré Word</button>
+        ${S.isAdmin?`<button class="btn btn-red" onclick="eliminarP('${id}')">Eliminar</button>`:''}
+      </div>
+    </div>
+    <p class="sec-t">Historial de movimientos</p>
+    <div class="card">${movHtml}</div>
+  `);
+}
+
+// ── COLABORADORES ─────────────────────────────────────────
+async function renderColabs(){
+  loading();
+  const {data:colabs} = await sb.from('colaboradores').select('*').order('creado_en',{ascending:false});
+  const {data:coms} = await sb.from('comisiones').select('*');
+  const res={};
+  (coms||[]).forEach(c=>{
+    if(!res[c.colaborador_email]) res[c.colaborador_email]={total:0,pendiente:0};
+    const m=parseFloat(c.monto_comision)||0;
+    res[c.colaborador_email].total+=m;
+    if(!c.pagada) res[c.colaborador_email].pendiente+=m;
+  });
+  const rows=(colabs||[]).map(c=>{
+    const r=res[c.email]||{total:0,pendiente:0};
+    return`<div class="card">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
+        <div class="av">${ini(c.nombre)}</div>
+        <div style="flex:1"><div style="font-weight:500">${c.nombre}</div><div style="font-size:11px;color:var(--t2);font-family:var(--mono)">${c.email} · ${c.porcentaje}% comisión</div></div>
+        <span class="badge ${c.activo?'b-ok':'b-mora'}">${c.activo?'Activo':'Inactivo'}</span>
+      </div>
+      <div class="kv-g">
+        <div><div class="kv-l">Comisión</div><div class="kv-v">${c.porcentaje}%</div></div>
+        <div><div class="kv-l">Total ganado</div><div class="kv-v" style="color:var(--gr)">${cop(r.total)}</div></div>
+        <div><div class="kv-l">Pendiente pago</div><div class="kv-v" style="color:var(--yl)">${cop(r.pendiente)}</div></div>
+      </div>
+      <div class="acts">
+        <button class="btn btn-sm ${c.activo?'btn-red':'btn-gr'}" onclick="toggleColab('${c.email}',${!c.activo})">${c.activo?'Desactivar':'Activar'}</button>
+        <button class="btn btn-sm" onclick="verComisiones('${c.email}','${c.nombre}')">Ver comisiones</button>
+      </div>
+    </div>`;
+  }).join('');
+  setContent(`
+    <div class="acts" style="margin-bottom:1.25rem"><button class="btn btn-ac" onclick="modalNuevoColab()">+ Agregar colaborador</button></div>
+    ${rows||'<div class="empty">Sin colaboradores.</div>'}
+  `);
+}
+
+function modalNuevoColab(){
+  showMo('Nuevo colaborador',`
+    <div class="frow1 fg"><label>Email de Google *</label><input id="c-email" type="email" placeholder="luisa@gmail.com"></div>
+    <div class="frow1 fg"><label>Nombre *</label><input id="c-nom" type="text" placeholder="Luisa Martínez"></div>
+    <div class="frow1 fg"><label>% comisión sobre intereses *</label><input id="c-pct" type="number" placeholder="4" step="0.5" min="0" max="100"></div>
+    <div class="ibox">El colaborador entra con su cuenta Google al mismo link y ve solo sus préstamos.</div>
+  `,[{label:'Cancelar',action:'closeMo()',cls:'btn'},{label:'Agregar',action:'confirmarColab()',cls:'btn btn-ac'}]);
+}
+
+async function confirmarColab(){
+  const email=document.getElementById('c-email')?.value.trim();
+  const nom=document.getElementById('c-nom')?.value.trim();
+  const pct=parseFloat(document.getElementById('c-pct')?.value);
+  if(!email||!nom||isNaN(pct)){alert('Completa todos los campos.');return}
+  const {error}=await sb.from('colaboradores').insert([{email,nombre:nom,porcentaje:pct,activo:true}]);
+  if(error){alert(error.message);return}
+  closeMo(); renderColabs();
+}
+
+async function toggleColab(email,activo){
+  await sb.from('colaboradores').update({activo}).eq('email',email);
+  renderColabs();
+}
+
+async function verComisiones(email, nombre){
+  const {data:coms}=await sb.from('comisiones').select('*').eq('colaborador_email',email).order('fecha',{ascending:false});
+  const pendiente=(coms||[]).filter(c=>!c.pagada).reduce((a,c)=>a+(parseFloat(c.monto_comision)||0),0);
+  const rows=(coms||[]).map(c=>`<div class="mov-row">
+    <span style="flex:1;color:var(--t2);font-family:var(--mono);font-size:11px">${fdate(c.fecha)}</span>
+    <span style="color:var(--t2);font-size:11px">Int: ${cop(parseFloat(c.monto_interes))} · ${c.porcentaje}%</span>
+    <span style="font-weight:500;font-family:var(--mono);color:var(--gr)">${cop(parseFloat(c.monto_comision))}</span>
+    <span class="badge ${c.pagada?'b-paid':'b-mora'}">${c.pagada?'Pagada':'Pendiente'}</span>
+    ${!c.pagada?`<button class="btn btn-sm btn-ac" onclick="pagarCom('${c.id}','${email}','${nombre}')">Pagar</button>`:''}
+  </div>`).join('');
+  showMo(`Comisiones — ${nombre}`,`
+    <div class="ibox">Pendiente: <strong style="color:var(--yl)">${cop(pendiente)}</strong></div>
+    <div style="max-height:260px;overflow-y:auto">${rows||'Sin comisiones.'}</div>
+  `,[{label:'Cerrar',action:'closeMo()',cls:'btn'}]);
+}
+
+async function pagarCom(id, email, nombre){
+  await sb.from('comisiones').update({pagada:true}).eq('id',id);
+  closeMo(); setTimeout(()=>verComisiones(email,nombre),150);
+}
+
+async function renderMisComisiones(){
+  loading();
+  const {data:coms}=await sb.from('comisiones').select('*').eq('colaborador_email',S.user.email).order('fecha',{ascending:false});
+  const total=(coms||[]).reduce((a,c)=>a+(parseFloat(c.monto_comision)||0),0);
+  const pendiente=(coms||[]).filter(c=>!c.pagada).reduce((a,c)=>a+(parseFloat(c.monto_comision)||0),0);
+  const rows=(coms||[]).map(c=>`<div class="mov-row">
+    <span style="flex:1;font-family:var(--mono);font-size:11px;color:var(--t2)">${fdate(c.fecha)}</span>
+    <span style="color:var(--t2);font-size:11px">Interés: ${cop(parseFloat(c.monto_interes))} · ${c.porcentaje}%</span>
+    <span style="font-weight:500;font-family:var(--mono);color:var(--gr)">${cop(parseFloat(c.monto_comision))}</span>
+    <span class="badge ${c.pagada?'b-paid':'b-mora'}">${c.pagada?'Pagada':'Pendiente'}</span>
+  </div>`).join('');
+  setContent(`
+    <div class="mets">
+      <div class="met"><div class="met-l">Total ganado</div><div class="met-v" style="color:var(--gr)">${cop(total)}</div></div>
+      <div class="met"><div class="met-l">Pendiente cobro</div><div class="met-v" style="color:var(--yl)">${cop(pendiente)}</div></div>
+    </div>
+    <p class="sec-t">Historial</p>
+    <div class="card">${rows||'<div style="color:var(--t3);font-size:12px">Sin comisiones aún.</div>'}</div>
+  `);
+}
+
+// ── CONFIG ────────────────────────────────────────────────
+function renderConfig(){
+  const cfg=JSON.parse(localStorage.getItem('prest_cfg')||'{}');
+  setContent(`<div class="card" style="max-width:480px">
+    <p class="sec-t">Datos del acreedor (pagarés)</p>
+    <div class="frow1 fg"><label>Nombre completo</label><input id="cfg-nom" type="text" value="${cfg.nom||'DAVID STEVEN ARANGO RESTREPO'}"></div>
+    <div class="frow1 fg"><label>Cédula</label><input id="cfg-cc" type="text" value="${cfg.cc||''}"></div>
+    <button class="btn btn-ac" onclick="saveConfig()">Guardar</button>
+    <hr>
+    <p class="sec-t">Sesión actual</p>
+    <p style="font-size:13px;color:var(--t2)">${S.user.email} · ${S.isAdmin?'<span style="color:var(--ac)">Administrador</span>':'<span style="color:var(--bl)">Colaborador</span>'}</p>
+    <div style="margin-top:.8rem"><button class="btn btn-sm btn-red" onclick="resetPin()">Cambiar PIN</button></div>
+  </div>`);
+}
+function saveConfig(){
+  const nom=document.getElementById('cfg-nom')?.value.trim();
+  const cc=document.getElementById('cfg-cc')?.value.trim();
+  localStorage.setItem('prest_cfg',JSON.stringify({nom,cc}));
+  alert('Perfil guardado.');
+}
+function resetPin(){ localStorage.removeItem('prest_pin'); showPin('create'); }
+
+// ── ACCIONES ──────────────────────────────────────────────
+function getP(id){ return S.prestamos.find(x=>x.id===id); }
+
+function doInteres(id){
+  const p=getP(id); if(!p||getSaldo(p)===0){alert('Saldo en cero.');return}
+  const interes=getInteres(p);
+  showMo('Registrar cobro de interés',`
+    <div class="ibox">Saldo: ${cop(getSaldo(p))} · Tasa: ${p.tasa}% · Interés sugerido: <strong style="color:var(--ac)">${cop(interes)}</strong></div>
+    <div class="frow1 fg"><label>Fecha</label><input id="m-f" type="date" value="${today()}"></div>
+    <div class="frow1 fg"><label>Monto (COP)</label><input id="m-m" type="number" value="${interes}"></div>
+    <div class="frow1 fg"><label>Nota</label><input id="m-n" type="text" placeholder="Opcional"></div>
+  `,[{label:'Cancelar',action:'closeMo()',cls:'btn'},{label:'Registrar',action:`confInteres('${id}')`,cls:'btn btn-ac'}]);
+}
+async function confInteres(id){
+  const f=document.getElementById('m-f')?.value, m=parseFloat(document.getElementById('m-m')?.value), n=document.getElementById('m-n')?.value||'';
+  if(!f||isNaN(m)||m<=0){alert('Datos inválidos.');return}
+  closeMo(); loading();
+  const movId='M'+Date.now();
+  await sb.from('movimientos').insert([{id:movId,prestamo_id:id,tipo:'interes',fecha:f,monto:m,nota:n}]);
+  // Calcular comisión
+  const p=getP(id);
+  if(p?.colaborador_email){
+    const {data:colab}=await sb.from('colaboradores').select('*').eq('email',p.colaborador_email).eq('activo',true).single();
+    if(colab?.porcentaje){
+      const montoComision=Math.round(m*(colab.porcentaje/100));
+      await sb.from('comisiones').insert([{id:'C'+Date.now(),movimiento_id:movId,prestamo_id:id,colaborador_email:p.colaborador_email,monto_interes:m,porcentaje:colab.porcentaje,monto_comision:montoComision,pagada:false}]);
+    }
+  }
+  await loadPrestamos();
+  S.tab==='det'?renderDet(id):renderDash();
+}
+
+function doAbono(id){
+  const p=getP(id); if(!p||getSaldo(p)===0){alert('Saldo en cero.');return}
+  const saldo=getSaldo(p);
+  showMo('Registrar abono a capital',`
+    <div class="ibox">Saldo actual: <strong style="color:var(--ac)">${cop(saldo)}</strong></div>
+    <div class="frow1 fg"><label>Fecha</label><input id="m-f" type="date" value="${today()}"></div>
+    <div class="frow1 fg"><label>Monto del abono (COP)</label><input id="m-m" type="number" placeholder="50000"></div>
+    <div class="frow1 fg"><label>Nota</label><input id="m-n" type="text" placeholder="Opcional"></div>
+  `,[{label:'Cancelar',action:'closeMo()',cls:'btn'},{label:'Registrar',action:`confAbono('${id}',${saldo})`,cls:'btn btn-ac'}]);
+}
+async function confAbono(id,saldo){
+  const f=document.getElementById('m-f')?.value, m=parseFloat(document.getElementById('m-m')?.value), n=document.getElementById('m-n')?.value||'';
+  if(!f||isNaN(m)||m<=0){alert('Datos inválidos.');return}
+  if(m>saldo){alert(`No puede superar el saldo de ${cop(saldo)}.`);return}
+  closeMo(); loading();
+  await sb.from('movimientos').insert([{id:'M'+Date.now(),prestamo_id:id,tipo:'abono',fecha:f,monto:m,nota:n}]);
+  await loadPrestamos();
+  const np=getP(id); const ns=getSaldo(np); const ni=getInteres(np);
+  S.tab==='det'?renderDet(id):renderDash();
+  setTimeout(()=>alert(`Abono registrado.\nNuevo saldo: ${cop(ns)}\nNuevo interés mensual: ${cop(ni)}`),200);
+}
+
+function doMora(id){
+  const p=getP(id); const mora=getMora(p), meses=getMesesMora(p);
+  if(!mora){alert('Sin mora.');return}
+  showMo('Registrar cobro de mora',`
+    <div class="ibox">Mora: <strong style="color:var(--red)">${cop(mora)}</strong> · ${meses} mes${meses>1?'es':''} · Tasa mora: ${p.tasa_mora||1.5}%</div>
+    <div class="frow1 fg"><label>Fecha</label><input id="m-f" type="date" value="${today()}"></div>
+    <div class="frow1 fg"><label>Monto (COP)</label><input id="m-m" type="number" value="${mora}"></div>
+    <div class="frow1 fg"><label>Nota</label><input id="m-n" type="text" value="${meses} mes${meses>1?'es':''} de mora"></div>
+  `,[{label:'Cancelar',action:'closeMo()',cls:'btn'},{label:'Registrar',action:`confMora('${id}')`,cls:'btn btn-yl'}]);
+}
+async function confMora(id){
+  const f=document.getElementById('m-f')?.value, m=parseFloat(document.getElementById('m-m')?.value), n=document.getElementById('m-n')?.value||'';
+  if(!f||isNaN(m)||m<=0){alert('Datos inválidos.');return}
+  closeMo(); loading();
+  await sb.from('movimientos').insert([{id:'M'+Date.now(),prestamo_id:id,tipo:'mora',fecha:f,monto:m,nota:n}]);
+  await loadPrestamos();
+  S.tab==='det'?renderDet(id):renderDash();
+}
+
+async function delMov(movId,prestamoId){
+  if(!confirm('¿Eliminar este movimiento?'))return;
+  loading();
+  await sb.from('movimientos').delete().eq('id',movId);
+  await loadPrestamos();
+  renderDet(prestamoId);
+}
+
+async function eliminarP(id){
+  if(!confirm('¿Eliminar este préstamo y todos sus movimientos?'))return;
+  loading();
+  await sb.from('prestamos').delete().eq('id',id);
+  await loadPrestamos();
+  nav('lista');
+}
+
+// ── MODAL ─────────────────────────────────────────────────
+function showMo(t,body,acts=[]){
+  document.getElementById('mo-t').textContent=t;
+  document.getElementById('mo-body').innerHTML=body;
+  document.getElementById('mo-acts').innerHTML=acts.map(a=>`<button class="${a.cls}" onclick="${a.action}">${a.label}</button>`).join('');
+  document.getElementById('modal').classList.remove('hidden');
+}
+function closeMo(e){ if(e&&e.target!==document.getElementById('modal'))return; document.getElementById('modal').classList.add('hidden'); }
+
+// ── INIT ──────────────────────────────────────────────────
+async function init(){
+  const {data:{session}} = await sb.auth.getSession();
+  if(!session){
+    document.getElementById('login-screen').style.display='flex';
+    return;
+  }
+  S.user = session.user;
+  S.isAdmin = session.user.email === ADMIN_EMAIL;
+  if(!S.isAdmin){
+    const {data:colab}=await sb.from('colaboradores').select('*').eq('email',session.user.email).eq('activo',true).single();
+    if(!colab){ await sb.auth.signOut(); document.getElementById('login-screen').style.display='flex'; document.querySelector('.login-sub').textContent='Tu cuenta no está autorizada. Contacta al administrador.'; return; }
+    S.colab=colab;
+  }
+  const savedPin = localStorage.getItem('prest_pin');
+  if(!savedPin){ showPin('create'); }
+  else { showPin('verify'); }
+}
+
+sb.auth.onAuthStateChange(async (event, session) => {
+  if(event==='SIGNED_IN' && session){ location.reload(); }
+});
+
+init();
+</script>
+</body>
+</html>
