@@ -478,18 +478,37 @@ function renderNuevo(){
     </div>
     <div id="n-banco-fields" style="display:none;background:var(--s2);border:1px solid var(--b1);border-radius:var(--rs);padding:1rem;margin-bottom:1rem">
       <div class="frow">
-        <div class="fg"><label>Número de cuotas (quincenas)</label><input id="n-ncuotas" type="number" placeholder="48" min="1" oninput="calcCuotaAuto()"></div>
-        <div class="fg"><label>Cuota quincenal (COP) — o déjala vacía</label><input id="n-cuotaq" type="number" placeholder="Se calcula automático" oninput="calcCuotaAuto()"></div>
+        <div class="fg"><label>Plazo en meses *</label><input id="n-plazo" type="number" placeholder="24" min="1" oninput="calcCuotaAuto()"></div>
+        <div class="fg"><label>Frecuencia de pago *</label>
+          <select id="n-frecuencia" onchange="calcCuotaAuto()">
+            <option value="30">Mensual</option>
+            <option value="15" selected>Quincenal</option>
+            <option value="7">Semanal</option>
+          </select>
+        </div>
       </div>
       <div class="frow">
-        <div class="fg"><label>Abono prima (COP)</label><input id="n-prima" type="number" placeholder="500000"></div>
-        <div class="fg"><label>Día pago 1 (ej: 10)</label><input id="n-dia1" type="number" placeholder="10" min="1" max="28"></div>
+        <div class="fg"><label>Cuota manual (COP) — o déjala vacía</label><input id="n-cuotaq" type="number" placeholder="Se calcula automático" oninput="calcCuotaAuto()"></div>
+        <div class="fg"><label>Cuota calculada</label><input id="n-cuotacalc" type="text" readonly style="color:var(--ac);background:var(--bg);border-color:var(--b2)" placeholder="Ingresa plazo y monto"></div>
       </div>
       <div class="frow">
-        <div class="fg"><label>Día pago 2 (ej: 25)</label><input id="n-dia2" type="number" placeholder="25" min="1" max="28"></div>
-        <div class="fg"><label>Cuota calculada</label><input id="n-cuotacalc" type="text" readonly style="color:var(--ac);background:var(--bg)" placeholder="Ingresa cuotas y monto"></div>
+        <div class="fg"><label>Día de pago 1 (ej: 10)</label><input id="n-dia1" type="number" placeholder="10" min="1" max="28"></div>
+        <div class="fg"><label>Día de pago 2 (ej: 25, solo si es quincenal)</label><input id="n-dia2" type="number" placeholder="25" min="1" max="28"></div>
       </div>
-      <div class="ibox" style="margin-bottom:0">Primas en junio y diciembre automáticamente. Si ingresas cuota manual, se usa esa; si la dejas vacía se calcula con el número de cuotas.</div>
+      <hr style="border-color:var(--b1);margin:.5rem 0">
+      <div class="fg" style="margin-bottom:8px"><label>Abonos extraordinarios a capital</label>
+        <select id="n-abono-tipo" onchange="toggleAbonoTipo()">
+          <option value="ninguno">Sin abonos extraordinarios</option>
+          <option value="primas">Junio y diciembre (primas Colombia)</option>
+          <option value="fechas">Fechas específicas que yo defino</option>
+        </select>
+      </div>
+      <div id="n-abono-monto-wrap" style="display:none">
+        <div class="fg"><label>Monto del abono a capital (COP)</label><input id="n-prima" type="number" placeholder="500000"></div>
+      </div>
+      <div id="n-abono-fechas-wrap" style="display:none;margin-top:8px">
+        <div class="fg"><label>Meses de abono (ej: 3,6,9,12)</label><input id="n-abono-meses" type="text" placeholder="6,12,18,24"></div>
+      </div>
     </div>
     <div style="display:flex;align-items:flex-start;gap:1.25rem;margin-bottom:1.1rem">
       <div>
@@ -532,38 +551,71 @@ function renderNuevo(){
   </div>`);
 }
  
-function generarAmortizacion(monto, tasaMensual, fechaInicio, cuotaQ, montoPrima, dia1, dia2){
-  const tq = (tasaMensual/100)/2;
+function generarAmortizacion(monto, tasaMensual, fechaInicio, cuotaQ, montoPrima, dia1, dia2, frec, abonoTipo, abonoMeses, plazoMeses){
+  frec = frec||15;
+  abonoTipo = abonoTipo||'ninguno';
+  abonoMeses = abonoMeses||[];
+  plazoMeses = plazoMeses||24;
+  const tp = (tasaMensual/100)*(frec/30);
   const primasMeses = new Set(['06','12']);
+  
   function nextFechas(desde, num){
     const fechas=[];
     const d=new Date(desde+'T12:00:00');
-    // primera quincena: dia1 del siguiente mes
-    let cur=new Date(d.getFullYear(), d.getMonth()+1, dia1||10);
+    let cur;
+    if(frec===30){
+      cur=new Date(d.getFullYear(),d.getMonth()+1,dia1||10);
+    } else if(frec===15){
+      cur=new Date(d.getFullYear(),d.getMonth()+1,dia1||10);
+    } else {
+      // semanal
+      cur=new Date(d.getTime()+7*24*60*60*1000);
+    }
     for(let i=0;i<num;i++){
       fechas.push(cur.toISOString().split('T')[0]);
-      if(cur.getDate()===(dia1||10)) cur=new Date(cur.getFullYear(),cur.getMonth(),dia2||25);
-      else cur=new Date(cur.getFullYear(),cur.getMonth()+1,dia1||10);
+      if(frec===30){
+        cur=new Date(cur.getFullYear(),cur.getMonth()+1,dia1||10);
+      } else if(frec===15){
+        if(cur.getDate()===(dia1||10)) cur=new Date(cur.getFullYear(),cur.getMonth(),dia2||25);
+        else cur=new Date(cur.getFullYear(),cur.getMonth()+1,dia1||10);
+      } else {
+        cur=new Date(cur.getTime()+7*24*60*60*1000);
+      }
     }
     return fechas;
   }
-  const fechas=nextFechas(fechaInicio,72);
+ 
+  const maxCuotas = Math.round(plazoMeses*(30/frec))*2;
+  const fechas=nextFechas(fechaInicio, maxCuotas);
   let saldo=monto;
   const cuotas=[];
+  const fechaInicioD=new Date(fechaInicio+'T12:00:00');
+ 
   for(let i=0;i<fechas.length&&saldo>0;i++){
     const fecha=fechas[i];
     const mes=fecha.slice(5,7);
     const diaF=parseInt(fecha.slice(8));
-    const esPrima=primasMeses.has(mes)&&diaF===(dia1||10);
-    const interes=Math.round(saldo*tq);
+    const fechaD=new Date(fecha+'T12:00:00');
+    const mesesTranscurridos=Math.round((fechaD-fechaInicioD)/(1000*60*60*24*30));
+    
+    // Determinar si hay abono extraordinario
+    let esPrima=false;
+    if(abonoTipo==='primas') esPrima=primasMeses.has(mes)&&(frec===30||(frec===15&&diaF===(dia1||10)));
+    else if(abonoTipo==='fechas') esPrima=abonoMeses.includes(mesesTranscurridos)&&(frec===30||(frec===15&&diaF===(dia1||10)));
+ 
+    const interes=Math.round(saldo*tp);
     let capital=cuotaQ-interes;
     if(capital<0)capital=0;
     if(capital>saldo)capital=saldo;
     saldo-=capital;
+ 
     let prima=0;
-    if(esPrima&&saldo>0&&montoPrima>0){prima=Math.min(montoPrima,saldo);saldo-=prima;}
+    if(esPrima&&saldo>0&&montoPrima>0){
+      prima=Math.min(montoPrima,saldo);
+      saldo-=prima;
+    }
     saldo=Math.max(0,saldo);
-    cuotas.push({num:i+1,fecha,interes,capital,cuota:interes+capital,prima,saldo,pagada:false,comprobante:null});
+    cuotas.push({num:i+1,fecha,interes,capital,cuota:interes+capital,prima,saldo,pagada:false,comprobante:null,frecDias:frec});
   }
   return cuotas;
 }
@@ -571,24 +623,37 @@ function generarAmortizacion(monto, tasaMensual, fechaInicio, cuotaQ, montoPrima
 function calcCuotaAuto(){
   const monto = parseFloat(document.getElementById('n-monto')?.value)||0;
   const tasa = parseFloat(document.getElementById('n-tasa')?.value)||0;
-  const nCuotas = parseInt(document.getElementById('n-ncuotas')?.value)||0;
+  const plazo = parseInt(document.getElementById('n-plazo')?.value)||0;
+  const frec = parseInt(document.getElementById('n-frecuencia')?.value)||15;
   const cuotaManual = parseFloat(document.getElementById('n-cuotaq')?.value)||0;
   const calcEl = document.getElementById('n-cuotacalc');
   if(!calcEl) return;
   if(cuotaManual > 0){
-    calcEl.value = 'Manual: ' + cop(cuotaManual);
+    const frecLabel = frec===30?'mes':frec===15?'quincena':'semana';
+    calcEl.value = 'Manual: ' + cop(cuotaManual) + ' / ' + frecLabel;
     return;
   }
-  if(!monto || !tasa || !nCuotas){ calcEl.value = ''; return; }
-  const tq = (tasa/100)/2;
-  const cuota = Math.round(monto * tq * Math.pow(1+tq, nCuotas) / (Math.pow(1+tq, nCuotas)-1));
-  calcEl.value = cop(cuota) + ' / quincena';
+  if(!monto || !tasa || !plazo){ calcEl.value = ''; return; }
+  const diasMes = 30;
+  const tasaPeriodo = (tasa/100) * (frec/diasMes);
+  const nCuotas = Math.round(plazo * (diasMes/frec));
+  const cuota = Math.round(monto * tasaPeriodo * Math.pow(1+tasaPeriodo, nCuotas) / (Math.pow(1+tasaPeriodo, nCuotas)-1));
+  const frecLabel = frec===30?'mes':frec===15?'quincena':'semana';
+  calcEl.value = cop(cuota) + ' / ' + frecLabel + ' (' + nCuotas + ' cuotas)';
 }
  
 function toggleTipoCred(){
   const tipo=document.getElementById('n-tipo')?.value;
   const bancoFields=document.getElementById('n-banco-fields');
   if(bancoFields) bancoFields.style.display=tipo==='banco'?'block':'none';
+}
+ 
+function toggleAbonoTipo(){
+  const tipo=document.getElementById('n-abono-tipo')?.value;
+  const montoWrap=document.getElementById('n-abono-monto-wrap');
+  const fechasWrap=document.getElementById('n-abono-fechas-wrap');
+  if(montoWrap) montoWrap.style.display=(tipo==='primas'||tipo==='fechas')?'block':'none';
+  if(fechasWrap) fechasWrap.style.display=tipo==='fechas'?'block':'none';
 }
  
 function sugerirTasa(){
@@ -622,22 +687,27 @@ async function guardar(){
   const tipo=tipoEl&&tipoEl.value?tipoEl.value:'informal';
   const bancoVisible=document.getElementById('n-banco-fields')?.style.display!=='none';
   const tipoFinal=bancoVisible?'banco':tipo;
-  let cuotaQ=0, montoPrimaB=0, dia1B=null, dia2B=null, scheduleB=null, nCuotasB=0;
+  let cuotaQ=0, montoPrimaB=0, dia1B=null, dia2B=null, scheduleB=null, frecB=15, plazoB=0, abonoTipoB='ninguno', abonoMesesB=[];
   if(tipoFinal==='banco'){
     const cuotaManual=parseFloat(document.getElementById('n-cuotaq')?.value)||0;
-    nCuotasB=parseInt(document.getElementById('n-ncuotas')?.value)||48;
+    plazoB=parseInt(document.getElementById('n-plazo')?.value)||24;
+    frecB=parseInt(document.getElementById('n-frecuencia')?.value)||15;
     montoPrimaB=parseFloat(document.getElementById('n-prima')?.value)||0;
     dia1B=parseInt(document.getElementById('n-dia1')?.value)||10;
     dia2B=parseInt(document.getElementById('n-dia2')?.value)||25;
+    abonoTipoB=document.getElementById('n-abono-tipo')?.value||'ninguno';
+    const mesesRaw=document.getElementById('n-abono-meses')?.value||'';
+    abonoMesesB=mesesRaw?mesesRaw.split(',').map(x=>parseInt(x.trim())).filter(x=>!isNaN(x)):[];
+    const nCuotasB=Math.round(plazoB*(30/frecB));
     if(cuotaManual>0){
       cuotaQ=cuotaManual;
     } else {
-      const tq=(tasa/100)/2;
-      cuotaQ=Math.round(monto*tq*Math.pow(1+tq,nCuotasB)/(Math.pow(1+tq,nCuotasB)-1));
+      const tp=(tasa/100)*(frecB/30);
+      cuotaQ=Math.round(monto*tp*Math.pow(1+tp,nCuotasB)/(Math.pow(1+tp,nCuotasB)-1));
     }
-    if(!cuotaQ||cuotaQ<=0){alert('Ingresa la cuota o el número de cuotas.');return;}
-    scheduleB=generarAmortizacion(monto,tasa,fecha,cuotaQ,montoPrimaB,dia1B,dia2B);
-    console.log('Banco: cuota='+cuotaQ+' prima='+montoPrimaB+' dia1='+dia1B+' dia2='+dia2B+' cuotas='+scheduleB.length);
+    if(!cuotaQ||cuotaQ<=0){alert('Ingresa el plazo o la cuota manual.');return;}
+    if(abonoTipoB==='ninguno')montoPrimaB=0;
+    scheduleB=generarAmortizacion(monto,tasa,fecha,cuotaQ,montoPrimaB,dia1B,dia2B,frecB,abonoTipoB,abonoMesesB,plazoB);
   }
  
   const row = {
@@ -657,7 +727,8 @@ async function guardar(){
     monto_prima: montoPrimaB||null,
     dia_pago1: dia1B||null,
     dia_pago2: dia2B||null,
-    schedule: scheduleB?JSON.stringify(scheduleB):null
+    schedule: scheduleB?JSON.stringify(scheduleB):null,
+    diapago: frecB===30?dia1B:null
   };
   loading();
   const {error} = await sb.from('prestamos').insert([row]);
@@ -1278,3 +1349,4 @@ init();
 </script>
 </body>
 </html>
+ 
