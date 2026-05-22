@@ -144,11 +144,14 @@ hr{border:none;border-top:1px solid var(--b1);margin:1.1rem 0}
 .mobile-ni svg{width:22px;height:22px;stroke-width:1.6}
 .mobile-ni.on{color:var(--ac)}
 .mobile-ni span{font-size:9px;white-space:nowrap}
+.mobile-more-item{display:flex;align-items:center;gap:12px;width:100%;padding:12px 1.5rem;background:none;border:none;color:var(--tx);font-size:14px;font-family:var(--sans);cursor:pointer;border-bottom:1px solid var(--b1);-webkit-tap-highlight-color:transparent}
+.mobile-more-item:last-child{border-bottom:none}
+.mobile-more-item:active{background:var(--s2)}
 @media(max-width:680px){.mobile-nav{display:block}.content{padding-bottom:90px}}
 </style>
 </head>
 <body>
- 
+
 <!-- LOGIN -->
 <div id="login-screen" class="login-wrap">
   <div class="login-box">
@@ -167,7 +170,7 @@ hr{border:none;border-top:1px solid var(--b1);margin:1.1rem 0}
     </div>
   </div>
 </div>
- 
+
 <!-- PIN -->
 <div id="pin-screen" class="pin-wrap" style="display:none">
   <div class="pin-box">
@@ -196,7 +199,7 @@ hr{border:none;border-top:1px solid var(--b1);margin:1.1rem 0}
     <div class="pin-err" id="pin-err"></div>
   </div>
 </div>
- 
+
 <!-- APP -->
 <div id="app-screen" class="shell" style="display:none">
   <aside class="sidebar">
@@ -217,7 +220,7 @@ hr{border:none;border-top:1px solid var(--b1);margin:1.1rem 0}
     </div>
   </div>
 </div>
- 
+
 <div class="mo hidden" id="modal" onclick="closeMo(event)">
   <div class="mo-box" id="mo-box">
     <div class="mo-t" id="mo-t"></div>
@@ -225,26 +228,26 @@ hr{border:none;border-top:1px solid var(--b1);margin:1.1rem 0}
     <div class="mo-acts" id="mo-acts"></div>
   </div>
 </div>
- 
+
 <script>
 // ── SUPABASE CONFIG ────────────────────────────────────────
 const SUPA_URL = 'https://ecuziesjyivcsooltwyh.supabase.co';
 const SUPA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVjdXppZXNqeWl2Y3Nvb2x0d3loIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkzOTkxODUsImV4cCI6MjA5NDk3NTE4NX0.EUOpyfrxeMDeP_JdQhet4WgksVBBIFIVePJV1yXe098';
 const ADMIN_EMAIL = 'davidarango89s@gmail.com';
- 
+
 const sb = supabase.createClient(SUPA_URL, SUPA_KEY);
- 
+
 // ── STATE ──────────────────────────────────────────────────
 let S = { user: null, isAdmin: false, colab: null, prestamos: [], tab: 'dash', detId: null };
 let fotoB64 = null;
- 
+
 // ── UTILS ──────────────────────────────────────────────────
 const cop = n => '$' + Math.round(n).toLocaleString('es-CO');
 const fdate = s => { if(!s) return '—'; const d = new Date(s.includes('T') ? s : s+'T12:00:00'); return d.toLocaleDateString('es-CO',{day:'2-digit',month:'short',year:'numeric'}); };
 const today = () => new Date().toISOString().split('T')[0];
 const ini = n => (n||'?').split(' ').slice(0,2).map(w=>w[0]).join('').toUpperCase();
 const slugify = s => s.toLowerCase().replace(/\s+/g,'_').replace(/[^a-z0-9_]/g,'').slice(0,18)+'_'+Date.now();
- 
+
 // ── FINANCE ───────────────────────────────────────────────
 function getSaldo(p){
   if(p.tipo_credito==='banco'){
@@ -280,7 +283,7 @@ function statusBadge(p){
   if(s==='mora') return `<span class="badge b-mora">Mora · ${getMesesMora(p)}m</span>`;
   return '<span class="badge b-ok">Al día</span>';
 }
- 
+
 // ── AUTH ──────────────────────────────────────────────────
 const NAVS_ADMIN = [
   {id:'dash',  label:'Resumen',        path:'M3 3h7v7H3zm11 0h7v7h-7zM3 14h7v7H3zm11 7v-7h7v7h-7z'},
@@ -297,7 +300,7 @@ const NAVS_COLAB = [
   {id:'miscom',label:'Mis comisiones', path:'M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z'},
 ];
 const TITLES = {dash:'Resumen',nuevo:'Nuevo préstamo',lista:'Deudores',cobros:'Cobros del mes',colabs:'Colaboradores',config:'Mi perfil',det:'Detalle',miscom:'Mis comisiones'};
- 
+
 async function loginMagicLink(){
   const email = document.getElementById("login-email")?.value.trim();
   if(!email){ alert("Ingresa tu correo."); return; }
@@ -307,14 +310,14 @@ async function loginMagicLink(){
   if(error){ msg.style.color="#ff5f5f"; msg.textContent = "Error: "+error.message; }
   else { msg.style.color="#50d090"; msg.textContent = "✓ Link enviado. Revisa tu bandeja de entrada y haz clic en el enlace."; document.getElementById("login-form").style.opacity="0.5"; document.getElementById("login-form").style.pointerEvents="none"; }
 }
- 
+
 async function cerrarSesion(){
   if(!confirm('¿Cerrar sesión?')) return;
   localStorage.removeItem('prest_pin');
   await sb.auth.signOut();
   location.reload();
 }
- 
+
 // ── INACTIVIDAD (10 min) ──────────────────────────────────
 const INACTIVITY_MS = 10 * 60 * 1000;
 let inactivityTimer = null;
@@ -323,12 +326,12 @@ function lockApp(){ if(document.getElementById('app-screen').style.display==='no
 ['click','keydown','touchstart','mousemove'].forEach(ev=>document.addEventListener(ev,resetInactivityTimer,{passive:true}));
 document.addEventListener('visibilitychange',()=>{ if(document.hidden)return; const last=parseInt(localStorage.getItem('prest_last_active')||'0'); if(Date.now()-last>INACTIVITY_MS)lockApp(); });
 setInterval(()=>{ if(document.getElementById('app-screen').style.display!=='none')localStorage.setItem('prest_last_active',Date.now()); },5000);
- 
+
 // ── PIN ───────────────────────────────────────────────────
 let pinBuffer = '';
 let pinMode = 'create'; // 'create' | 'confirm' | 'verify'
 let pinFirst = '';
- 
+
 function showPin(mode){
   pinMode = mode; pinBuffer = ''; pinFirst = '';
   document.getElementById('login-screen').style.display = 'none';
@@ -343,22 +346,22 @@ function showPin(mode){
   }
   updateDots();
 }
- 
+
 function pinKey(d){
   if(pinBuffer.length >= 4) return;
   pinBuffer += d;
   updateDots();
   if(pinBuffer.length === 4) setTimeout(processPin, 200);
 }
- 
+
 function pinClear(){ pinBuffer = pinBuffer.slice(0,-1); updateDots(); }
- 
+
 function updateDots(){
   for(let i=0;i<4;i++){
     document.getElementById('d'+i).classList.toggle('filled', i < pinBuffer.length);
   }
 }
- 
+
 function processPin(){
   document.getElementById('pin-err').textContent = '';
   if(pinMode === 'create'){
@@ -388,14 +391,14 @@ function processPin(){
     }
   }
 }
- 
+
 // ── APP START ─────────────────────────────────────────────
 async function startApp(){
   document.getElementById('pin-screen').style.display = 'none';
   document.getElementById('login-screen').style.display = 'none';
   document.getElementById('app-screen').style.display = 'flex';
   document.getElementById('user-pill').textContent = S.user.email + ' · salir';
-  // Show mobile nav
+  // Show mobile nav always
   const mobileNav = document.getElementById('mobile-nav');
   if(mobileNav) mobileNav.style.display = 'block';
   const navs = S.isAdmin ? NAVS_ADMIN : NAVS_COLAB;
@@ -407,7 +410,7 @@ async function startApp(){
   await loadPrestamos();
   nav('dash');
 }
- 
+
 async function loadPrestamos(){
   let q = sb.from('prestamos').select('*, movimientos(*)');
   if(!S.isAdmin) q = q.eq('colaborador_email', S.user.email);
@@ -415,8 +418,13 @@ async function loadPrestamos(){
   if(error){ console.error(error); return; }
   S.prestamos = (data||[]).map(p=>({...p, movs: p.movimientos||[]}));
 }
- 
+
 // ── NAV ───────────────────────────────────────────────────
+function toggleMobileMore(){
+  const m=document.getElementById('mobile-more-menu');
+  if(m) m.style.display=m.style.display==='none'?'block':'none';
+}
+
 async function nav(s){
   S.tab = s;
   document.querySelectorAll('.ni').forEach(x=>x.classList.remove('on'));
@@ -433,10 +441,10 @@ async function nav(s){
   else if(s==='miscom') renderMisComisiones();
   else if(s==='banco') renderBanco();
 }
- 
+
 function setContent(html){ document.getElementById('content').innerHTML = html; }
 function loading(){ setContent('<div class="loading"><div class="spinner"></div>Cargando...</div>'); }
- 
+
 // ── DASHBOARD ─────────────────────────────────────────────
 function renderDash(){
   const act = S.prestamos.filter(p=>getSaldo(p)>0 && p.tipo_credito!=='banco');
@@ -458,7 +466,7 @@ function renderDash(){
     ${act.length ? act.map(p=>dcard(p)).join('') : '<div class="empty">Sin préstamos activos.</div>'}
   `);
 }
- 
+
 function dcard(p){
   const saldo=getSaldo(p), interes=getInteres(p), mora=getMora(p), prox=getProxPago(p);
   const colabTag = p.colaborador_email ? `<span class="tag-colab">${p.colaborador_email.split('@')[0]}</span>` : '';
@@ -487,7 +495,7 @@ function dcard(p){
     </div>
   </div>`;
 }
- 
+
 // ── NUEVO PRÉSTAMO ────────────────────────────────────────
 function renderNuevo(){
   setContent(`<div class="card">
@@ -572,7 +580,7 @@ function renderNuevo(){
     </div>
   </div>`);
 }
- 
+
 function generarAmortizacion(monto, tasaMensual, fechaInicio, cuotaQ, montoPrima, dia1, dia2, frec, abonoTipo, abonoMeses, plazoMeses, primeraCuota){
   frec = frec||15;
   abonoTipo = abonoTipo||'ninguno';
@@ -608,13 +616,13 @@ function generarAmortizacion(monto, tasaMensual, fechaInicio, cuotaQ, montoPrima
     }
     return fechas;
   }
- 
+
   const maxCuotas = Math.round(plazoMeses*(30/frec))*2;
   const fechas=nextFechas(fechaInicio, maxCuotas);
   let saldo=monto;
   const cuotas=[];
   const fechaInicioD=new Date(fechaInicio+'T12:00:00');
- 
+
   for(let i=0;i<fechas.length&&saldo>0;i++){
     const fecha=fechas[i];
     const mes=fecha.slice(5,7);
@@ -626,13 +634,13 @@ function generarAmortizacion(monto, tasaMensual, fechaInicio, cuotaQ, montoPrima
     let esPrima=false;
     if(abonoTipo==='primas') esPrima=primasMeses.has(mes)&&(frec===30||(frec===15&&diaF===(dia1||10)));
     else if(abonoTipo==='fechas') esPrima=abonoMeses.includes(mesesTranscurridos)&&(frec===30||(frec===15&&diaF===(dia1||10)));
- 
+
     const interes=Math.round(saldo*tp);
     let capital=cuotaQ-interes;
     if(capital<0)capital=0;
     if(capital>saldo)capital=saldo;
     saldo-=capital;
- 
+
     let prima=0;
     if(esPrima&&saldo>0&&montoPrima>0){
       prima=Math.min(montoPrima,saldo);
@@ -643,7 +651,7 @@ function generarAmortizacion(monto, tasaMensual, fechaInicio, cuotaQ, montoPrima
   }
   return cuotas;
 }
- 
+
 function calcCuotaAuto(){
   const monto = parseFloat(document.getElementById('n-monto')?.value)||0;
   const tasa = parseFloat(document.getElementById('n-tasa')?.value)||0;
@@ -665,13 +673,13 @@ function calcCuotaAuto(){
   const frecLabel = frec===30?'mes':frec===15?'quincena':'semana';
   calcEl.value = cop(cuota) + ' / ' + frecLabel + ' (' + nCuotas + ' cuotas)';
 }
- 
+
 function toggleTipoCred(){
   const tipo=document.getElementById('n-tipo')?.value;
   const bancoFields=document.getElementById('n-banco-fields');
   if(bancoFields) bancoFields.style.display=tipo==='banco'?'block':'none';
 }
- 
+
 function toggleAbonoTipo(){
   const tipo=document.getElementById('n-abono-tipo')?.value;
   const montoWrap=document.getElementById('n-abono-monto-wrap');
@@ -679,7 +687,7 @@ function toggleAbonoTipo(){
   if(montoWrap) montoWrap.style.display=(tipo==='primas'||tipo==='fechas')?'block':'none';
   if(fechasWrap) fechasWrap.style.display=tipo==='fechas'?'block':'none';
 }
- 
+
 function sugerirTasa(){
   const m=parseFloat(document.getElementById('n-monto')?.value)||0;
   const t=document.getElementById('n-tasa'); if(!t||t.value)return;
@@ -699,7 +707,7 @@ function loadFoto(input){
   r.onload=e=>{fotoB64=e.target.result; document.getElementById('foto-prev').innerHTML=`<img src="${fotoB64}" alt="">`;};
   r.readAsDataURL(f);
 }
- 
+
 async function guardar(){
   const nom=document.getElementById('n-nom')?.value.trim();
   const monto=parseFloat(document.getElementById('n-monto')?.value);
@@ -735,7 +743,7 @@ async function guardar(){
     dia1B=primeraCuotaB?parseInt(primeraCuotaB.slice(8))||10:10;
     scheduleB=generarAmortizacion(monto,tasa,fecha,cuotaQ,montoPrimaB,dia1B,dia2B,frecB,abonoTipoB,abonoMesesB,plazoB,primeraCuotaB);
   }
- 
+
   const row = {
     id: 'P'+Date.now(),
     nombre: nom,
@@ -765,7 +773,7 @@ async function guardar(){
   const p = S.prestamos.find(x=>x.id===row.id);
   mostrarPagare(p||row);
 }
- 
+
 function mostrarPagare(p){
   const d=new Date((p.fecha||today())+'T12:00:00'); d.setMonth(d.getMonth()+1);
   if(p.diapago) d.setDate(Math.min(parseInt(p.diapago)||1,28));
@@ -782,7 +790,7 @@ function copiarPagare(){
   const txt=document.getElementById('pag-json')?.textContent;
   if(txt) navigator.clipboard.writeText('Generar pagaré Word para: '+txt).then(()=>alert('Copiado. Pégalo en Claude.'));
 }
- 
+
 // ── LISTA ─────────────────────────────────────────────────
 function renderLista(){
   const informales=S.prestamos.filter(p=>p.tipo_credito!=='banco');
@@ -791,7 +799,7 @@ function renderLista(){
     ${informales.length ? informales.map(p=>dcard(p)).join('') : '<div class="empty">Sin préstamos registrados.</div>'}
   `);
 }
- 
+
 // ── COBROS ────────────────────────────────────────────────
 function renderCobros(){
   const t=today(); const[ay,am]=t.split('-').map(Number);
@@ -808,7 +816,7 @@ function renderCobros(){
   if(moraExt.length){ html+=`<p class="sec-t" style="margin-top:1.5rem">Moras anteriores</p><div class="card">`; moraExt.forEach(p=>{html+=`<div class="mov-row"><div style="flex:1.4;font-weight:500">${p.nombre}</div><div style="color:var(--red);flex:1;font-size:11px;font-family:var(--mono)">${getMesesMora(p)}m mora</div><div style="min-width:95px;text-align:right;font-weight:500;color:var(--red);font-family:var(--mono)">${cop(getMora(p))}</div><button class="btn btn-sm btn-yl" onclick="doMora('${p.id}')">Mora</button><button class="btn btn-sm btn-ac" onclick="doInteres('${p.id}')">Interés</button></div>`;}); html+='</div>'; }
   setContent(html);
 }
- 
+
 // ── DETALLE ───────────────────────────────────────────────
 function openDet(id){ S.detId=id; S.tab='det'; document.getElementById('page-t').textContent='Detalle'; renderDet(id); }
 function renderDet(id){
@@ -853,7 +861,7 @@ function renderDet(id){
     <div class="card">${movHtml}</div>
   `);
 }
- 
+
 // ── COLABORADORES ─────────────────────────────────────────
 async function renderColabs(){
   loading();
@@ -891,7 +899,7 @@ async function renderColabs(){
     ${rows||'<div class="empty">Sin colaboradores.</div>'}
   `);
 }
- 
+
 function modalNuevoColab(){
   showMo('Nuevo colaborador',`
     <div class="frow1 fg"><label>Email de Google *</label><input id="c-email" type="email" placeholder="luisa@gmail.com"></div>
@@ -900,7 +908,7 @@ function modalNuevoColab(){
     <div class="ibox">El colaborador entra con su cuenta Google al mismo link y ve solo sus préstamos.</div>
   `,[{label:'Cancelar',action:'closeMo()',cls:'btn'},{label:'Agregar',action:'confirmarColab()',cls:'btn btn-ac'}]);
 }
- 
+
 async function confirmarColab(){
   const email=document.getElementById('c-email')?.value.trim();
   const nom=document.getElementById('c-nom')?.value.trim();
@@ -910,12 +918,12 @@ async function confirmarColab(){
   if(error){alert(error.message);return}
   closeMo(); renderColabs();
 }
- 
+
 async function toggleColab(email,activo){
   await sb.from('colaboradores').update({activo}).eq('email',email);
   renderColabs();
 }
- 
+
 async function verComisiones(email, nombre){
   const {data:coms}=await sb.from('comisiones').select('*').eq('colaborador_email',email).order('fecha',{ascending:false});
   const pendiente=(coms||[]).filter(c=>!c.pagada).reduce((a,c)=>a+(parseFloat(c.monto_comision)||0),0);
@@ -931,12 +939,12 @@ async function verComisiones(email, nombre){
     <div style="max-height:260px;overflow-y:auto">${rows||'Sin comisiones.'}</div>
   `,[{label:'Cerrar',action:'closeMo()',cls:'btn'}]);
 }
- 
+
 async function pagarCom(id, email, nombre){
   await sb.from('comisiones').update({pagada:true}).eq('id',id);
   closeMo(); setTimeout(()=>verComisiones(email,nombre),150);
 }
- 
+
 async function renderMisComisiones(){
   loading();
   const {data:coms}=await sb.from('comisiones').select('*').eq('colaborador_email',S.user.email).order('fecha',{ascending:false});
@@ -957,7 +965,7 @@ async function renderMisComisiones(){
     <div class="card">${rows||'<div style="color:var(--t3);font-size:12px">Sin comisiones aún.</div>'}</div>
   `);
 }
- 
+
 // ── CONFIG ────────────────────────────────────────────────
 function renderConfig(){
   const cfg=JSON.parse(localStorage.getItem('prest_cfg')||'{}');
@@ -979,10 +987,10 @@ function saveConfig(){
   alert('Perfil guardado.');
 }
 function resetPin(){ localStorage.removeItem('prest_pin'); showPin('create'); }
- 
+
 // ── ACCIONES ──────────────────────────────────────────────
 function getP(id){ return S.prestamos.find(x=>x.id===id); }
- 
+
 function doInteres(id){
   const p=getP(id); if(!p||getSaldo(p)===0){alert('Saldo en cero.');return}
   const interes=getInteres(p);
@@ -1012,7 +1020,7 @@ async function confInteres(id){
   await loadPrestamos();
   S.tab==='det'?renderDet(id):renderDash();
 }
- 
+
 function doAbono(id){
   const p=getP(id); if(!p||getSaldo(p)===0){alert('Saldo en cero.');return}
   const saldo=getSaldo(p);
@@ -1034,7 +1042,7 @@ async function confAbono(id,saldo){
   S.tab==='det'?renderDet(id):renderDash();
   setTimeout(()=>alert(`Abono registrado.\nNuevo saldo: ${cop(ns)}\nNuevo interés mensual: ${cop(ni)}`),200);
 }
- 
+
 function doMora(id){
   const p=getP(id); const mora=getMora(p), meses=getMesesMora(p);
   if(!mora){alert('Sin mora.');return}
@@ -1053,7 +1061,7 @@ async function confMora(id){
   await loadPrestamos();
   S.tab==='det'?renderDet(id):renderDash();
 }
- 
+
 async function delMov(movId,prestamoId){
   if(!confirm('¿Eliminar este movimiento?'))return;
   loading();
@@ -1061,7 +1069,7 @@ async function delMov(movId,prestamoId){
   await loadPrestamos();
   renderDet(prestamoId);
 }
- 
+
 async function eliminarP(id){
   if(!confirm('¿Eliminar este préstamo y todos sus movimientos?'))return;
   loading();
@@ -1069,15 +1077,15 @@ async function eliminarP(id){
   await loadPrestamos();
   nav('lista');
 }
- 
- 
+
+
 // ── CRÉDITOS BANCARIOS ───────────────────────────────────
 function renderBanco(){
   const bancos=S.prestamos.filter(p=>p.tipo_credito==='banco');
   if(!bancos.length){setContent('<div class="empty">Sin créditos bancarios registrados.<br>Crea uno nuevo desde <strong>Nuevo préstamo</strong> seleccionando tipo "Bancario".</div>');return;}
   setContent(bancos.map(p=>bancoCard(p)).join(''));
 }
- 
+
 function bancoCard(p){
   const schedule=p.schedule?JSON.parse(p.schedule):[];
   const pagadas=schedule.filter(c=>c.pagada).length;
@@ -1115,7 +1123,7 @@ function bancoCard(p){
     </div>
   </div>`;
 }
- 
+
 function verSchedule(id){
   const p=getP(id); if(!p)return;
   const schedule=p.schedule?JSON.parse(p.schedule):[];
@@ -1136,7 +1144,7 @@ function verSchedule(id){
     <div style="max-height:320px;overflow-y:auto">${rows}</div>
   `,[{label:'Cerrar',action:'closeMo()',cls:'btn'}]);
 }
- 
+
 function pagarCuotaBanco(id, idx){
   const p=getP(id); if(!p)return;
   const schedule=JSON.parse(p.schedule||'[]');
@@ -1157,7 +1165,7 @@ function pagarCuotaBanco(id, idx){
     <div class="frow1 fg"><label>Nota</label><input id="m-n" type="text" placeholder="Opcional"></div>
   `,[{label:'Cancelar',action:'closeMo()',cls:'btn'},{label:'Confirmar pago',action:`confPagoCuota('${id}',${idx})`,cls:'btn btn-ac'}]);
 }
- 
+
 let comprobanteB64=null;
 function previewComp(input){
   const f=input.files[0]; if(!f)return;
@@ -1168,7 +1176,7 @@ function previewComp(input){
   };
   r.readAsDataURL(f);
 }
- 
+
 function verComprobante(id,idx){
   const p=getP(id); if(!p)return;
   const schedule=JSON.parse(p.schedule||'[]');
@@ -1176,7 +1184,7 @@ function verComprobante(id,idx){
   showMo('Comprobante',`<img src="${c.comprobante}" style="width:100%;border-radius:var(--rs)">`,
     [{label:'Cerrar',action:'closeMo()',cls:'btn'}]);
 }
- 
+
 async function confPagoCuota(id,idx){
   const fecha=document.getElementById('m-f')?.value;
   const nota=document.getElementById('m-n')?.value||'';
@@ -1197,7 +1205,7 @@ async function confPagoCuota(id,idx){
   renderBanco();
   setTimeout(()=>verSchedule(id),300);
 }
- 
+
 // ── EDITAR PRÉSTAMO ───────────────────────────────────────
 function editarPrestamo(id){
   const p=getP(id);if(!p)return;
@@ -1240,7 +1248,7 @@ async function confEditarPrestamo(id){
   await loadPrestamos();
   renderDet(id);
 }
- 
+
 // ── EDITAR COLABORADOR ────────────────────────────────────
 function editarColab(email,nombre,porcentaje){
   showMo('Editar colaborador',`
@@ -1257,7 +1265,7 @@ async function confEditarColab(email){
   await sb.from('colaboradores').update({nombre:nom,porcentaje:pct}).eq('email',email);
   renderColabs();
 }
- 
+
 // ── EDITAR / ELIMINAR BANCO ──────────────────────────────
 function editarBanco(id){
   const p=getP(id); if(!p)return;
@@ -1289,7 +1297,7 @@ function editarBanco(id){
     {label:'Guardar cambios',action:`confEditarBanco('${id}')`,cls:'btn btn-ac'}
   ]);
 }
- 
+
 async function confEditarBanco(id){
   const p=getP(id);
   const nom=document.getElementById('eb-nom')?.value.trim();
@@ -1314,7 +1322,7 @@ async function confEditarBanco(id){
   await loadPrestamos();
   renderBanco();
 }
- 
+
 async function eliminarBanco(id){
   if(!confirm('¿Eliminar este crédito y todos sus pagos?'))return;
   loading();
@@ -1323,7 +1331,7 @@ async function eliminarBanco(id){
   await loadPrestamos();
   renderBanco();
 }
- 
+
 // ── MODAL ─────────────────────────────────────────────────
 function showMo(t,body,acts=[]){
   document.getElementById('mo-t').textContent=t;
@@ -1332,14 +1340,14 @@ function showMo(t,body,acts=[]){
   document.getElementById('modal').classList.remove('hidden');
 }
 function closeMo(e){ if(e&&e.target!==document.getElementById('modal'))return; document.getElementById('modal').classList.add('hidden'); }
- 
+
 // ── INIT ──────────────────────────────────────────────────
 async function init(){
   // Hide all screens first
   document.getElementById('login-screen').style.display='none';
   document.getElementById('pin-screen').style.display='none';
   document.getElementById('app-screen').style.display='none';
- 
+
   const {data:{session}, error} = await sb.auth.getSession();
   if(error || !session){
     document.getElementById('login-screen').style.display='flex';
@@ -1361,7 +1369,7 @@ async function init(){
   if(!savedPin){ showPin('create'); }
   else { showPin('verify'); }
 }
- 
+
 sb.auth.onAuthStateChange(async (event, session) => {
   if(event==='SIGNED_IN' && session && document.getElementById('login-screen').style.display!=='none'){
     S.user = session.user;
@@ -1375,11 +1383,47 @@ sb.auth.onAuthStateChange(async (event, session) => {
     if(!savedPin){ showPin('create'); } else { showPin('verify'); }
   }
 });
- 
+
 init();
 </script>
-<div class="mobile-nav" id="mobile-nav">
-  <div class="mobile-nav-inner" id="mobile-nav-inner"></div>
+<div class="mobile-nav" id="mobile-nav" style="display:none">
+  <div class="mobile-nav-inner">
+    <button class="mobile-ni on" id="mnav-dash" onclick="nav('dash')">
+      <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+      <span>Resumen</span>
+    </button>
+    <button class="mobile-ni" id="mnav-nuevo" onclick="nav('nuevo')">
+      <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
+      <span>Nuevo</span>
+    </button>
+    <button class="mobile-ni" id="mnav-lista" onclick="nav('lista')">
+      <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><circle cx="9" cy="7" r="4"/><path d="M3 21v-2a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4v2"/></svg>
+      <span>Deudores</span>
+    </button>
+    <button class="mobile-ni" id="mnav-cobros" onclick="nav('cobros')">
+      <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+      <span>Cobros</span>
+    </button>
+    <button class="mobile-ni" id="mnav-more" onclick="toggleMobileMore()">
+      <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><circle cx="5" cy="12" r="1.5" fill="currentColor"/><circle cx="12" cy="12" r="1.5" fill="currentColor"/><circle cx="19" cy="12" r="1.5" fill="currentColor"/></svg>
+      <span>Más</span>
+    </button>
+  </div>
+</div>
+
+<div id="mobile-more-menu" style="display:none;position:fixed;bottom:70px;right:0;left:0;background:var(--s1);border-top:1px solid var(--b1);z-index:999;padding:.5rem 0">
+  <button class="mobile-more-item" onclick="nav('colabs');toggleMobileMore()">
+    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="18" height="18"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+    Colaboradores
+  </button>
+  <button class="mobile-more-item" onclick="nav('banco');toggleMobileMore()">
+    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="18" height="18"><path d="M2 7l10-5 10 5v2H2V7zm0 4h20v10H2V11zm4 2v6h2v-6H6zm5 0v6h2v-6h-2zm5 0v6h2v-6h-2z"/></svg>
+    Créditos bancarios
+  </button>
+  <button class="mobile-more-item" onclick="nav('config');toggleMobileMore()">
+    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="18" height="18"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+    Mi perfil
+  </button>
 </div>
 </body>
 </html>
