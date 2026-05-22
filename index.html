@@ -1,5 +1,3 @@
-
-
 <!DOCTYPE html>
 <html lang="es">
 <head>
@@ -287,6 +285,15 @@ async function cerrarSesion(){
   await sb.auth.signOut();
   location.reload();
 }
+
+// ── INACTIVIDAD (10 min) ──────────────────────────────────
+const INACTIVITY_MS = 10 * 60 * 1000;
+let inactivityTimer = null;
+function resetInactivityTimer(){ clearTimeout(inactivityTimer); inactivityTimer = setTimeout(lockApp, INACTIVITY_MS); }
+function lockApp(){ if(document.getElementById('app-screen').style.display==='none')return; document.getElementById('app-screen').style.display='none'; showPin('verify'); }
+['click','keydown','touchstart','mousemove'].forEach(ev=>document.addEventListener(ev,resetInactivityTimer,{passive:true}));
+document.addEventListener('visibilitychange',()=>{ if(document.hidden)return; const last=parseInt(localStorage.getItem('prest_last_active')||'0'); if(Date.now()-last>INACTIVITY_MS)lockApp(); });
+setInterval(()=>{ if(document.getElementById('app-screen').style.display!=='none')localStorage.setItem('prest_last_active',Date.now()); },5000);
 
 // ── PIN ───────────────────────────────────────────────────
 let pinBuffer = '';
@@ -616,6 +623,7 @@ function renderDet(id){
         ${saldo>0?`<button class="btn btn-gr" onclick="doAbono('${id}')">Abono capital</button>`:''}
         ${mora>0?`<button class="btn btn-yl" onclick="doMora('${id}')">Cobrar mora</button>`:''}
         <button class="btn" onclick="mostrarPagare(S.prestamos.find(x=>x.id==='${id}'))">Pagaré Word</button>
+        <button class="btn" onclick="editarPrestamo('${id}')">Editar</button>
         ${S.isAdmin?`<button class="btn btn-red" onclick="eliminarP('${id}')">Eliminar</button>`:''}
       </div>
     </div>
@@ -651,6 +659,7 @@ async function renderColabs(){
       </div>
       <div class="acts">
         <button class="btn btn-sm ${c.activo?'btn-red':'btn-gr'}" onclick="toggleColab('${c.email}',${!c.activo})">${c.activo?'Desactivar':'Activar'}</button>
+        <button class="btn btn-sm" onclick="editarColab('${c.email}','${c.nombre}',${c.porcentaje})">Editar</button>
         <button class="btn btn-sm" onclick="verComisiones('${c.email}','${c.nombre}')">Ver comisiones</button>
       </div>
     </div>`;
@@ -690,7 +699,7 @@ async function verComisiones(email, nombre){
   const pendiente=(coms||[]).filter(c=>!c.pagada).reduce((a,c)=>a+(parseFloat(c.monto_comision)||0),0);
   const rows=(coms||[]).map(c=>`<div class="mov-row">
     <span style="flex:1;color:var(--t2);font-family:var(--mono);font-size:11px">${fdate(c.fecha)}</span>
-    <span style="color:var(--t2);font-size:11px">Int: ${cop(parseFloat(c.monto_interes))} · ${c.porcentaje}%</span>
+    <span style="color:var(--t2);font-size:11px">Capital: ${cop(parseFloat(c.monto_interes))} · ${c.porcentaje}%</span>
     <span style="font-weight:500;font-family:var(--mono);color:var(--gr)">${cop(parseFloat(c.monto_comision))}</span>
     <span class="badge ${c.pagada?'b-paid':'b-mora'}">${c.pagada?'Pagada':'Pendiente'}</span>
     ${!c.pagada?`<button class="btn btn-sm btn-ac" onclick="pagarCom('${c.id}','${email}','${nombre}')">Pagar</button>`:''}
@@ -713,7 +722,7 @@ async function renderMisComisiones(){
   const pendiente=(coms||[]).filter(c=>!c.pagada).reduce((a,c)=>a+(parseFloat(c.monto_comision)||0),0);
   const rows=(coms||[]).map(c=>`<div class="mov-row">
     <span style="flex:1;font-family:var(--mono);font-size:11px;color:var(--t2)">${fdate(c.fecha)}</span>
-    <span style="color:var(--t2);font-size:11px">Interés: ${cop(parseFloat(c.monto_interes))} · ${c.porcentaje}%</span>
+    <span style="color:var(--t2);font-size:11px">Capital: ${cop(parseFloat(c.monto_interes))} · ${c.porcentaje}%</span>
     <span style="font-weight:500;font-family:var(--mono);color:var(--gr)">${cop(parseFloat(c.monto_comision))}</span>
     <span class="badge ${c.pagada?'b-paid':'b-mora'}">${c.pagada?'Pagada':'Pendiente'}</span>
   </div>`).join('');
@@ -773,8 +782,9 @@ async function confInteres(id){
   if(p?.colaborador_email){
     const {data:colab}=await sb.from('colaboradores').select('*').eq('email',p.colaborador_email).eq('activo',true).single();
     if(colab?.porcentaje){
-      const montoComision=Math.round(m*(colab.porcentaje/100));
-      await sb.from('comisiones').insert([{id:'C'+Date.now(),movimiento_id:movId,prestamo_id:id,colaborador_email:p.colaborador_email,monto_interes:m,porcentaje:colab.porcentaje,monto_comision:montoComision,pagada:false}]);
+      const saldoActual=getSaldo(p);
+      const montoComision=Math.round(saldoActual*(colab.porcentaje/100));
+      await sb.from('comisiones').insert([{id:'C'+Date.now(),movimiento_id:movId,prestamo_id:id,colaborador_email:p.colaborador_email,monto_interes:saldoActual,porcentaje:colab.porcentaje,monto_comision:montoComision,pagada:false}]);
     }
   }
   await loadPrestamos();
@@ -836,6 +846,67 @@ async function eliminarP(id){
   await sb.from('prestamos').delete().eq('id',id);
   await loadPrestamos();
   nav('lista');
+}
+
+
+// ── EDITAR PRÉSTAMO ───────────────────────────────────────
+function editarPrestamo(id){
+  const p=getP(id);if(!p)return;
+  showMo('Editar préstamo',`
+    <div class="frow">
+      <div class="fg"><label>Nombre</label><input id="e-nom" type="text" value="${p.nombre||''}"></div>
+      <div class="fg"><label>Cédula</label><input id="e-cc" type="text" value="${p.cc||''}"></div>
+    </div>
+    <div class="frow">
+      <div class="fg"><label>Teléfono</label><input id="e-tel" type="text" value="${p.telefono||''}"></div>
+      <div class="fg"><label>Dirección</label><input id="e-dir" type="text" value="${p.direccion||''}"></div>
+    </div>
+    <div class="frow">
+      <div class="fg"><label>Tasa interés (%)</label><input id="e-tasa" type="number" value="${p.tasa||''}" step="0.5"></div>
+      <div class="fg"><label>% mora mensual</label><input id="e-mora" type="number" value="${p.tasa_mora||1.5}" step="0.5"></div>
+    </div>
+    <div class="frow">
+      <div class="fg"><label>Día de pago</label><input id="e-dia" type="number" value="${p.diapago||''}" min="1" max="31"></div>
+      <div class="fg"><label>Núm. pagaré</label><input id="e-numpag" type="text" value="${p.num_pagare||''}"></div>
+    </div>
+    ${S.isAdmin?`<div class="frow1 fg"><label>Email colaborador</label><input id="e-colab" type="email" value="${p.colaborador_email||''}"></div>`:''}
+  `,[{label:'Cancelar',action:'closeMo()',cls:'btn'},{label:'Guardar cambios',action:`confEditarPrestamo('${id}')`,cls:'btn btn-ac'}]);
+}
+async function confEditarPrestamo(id){
+  const updates={
+    nombre:document.getElementById('e-nom')?.value.trim(),
+    cc:document.getElementById('e-cc')?.value.trim(),
+    telefono:document.getElementById('e-tel')?.value.trim(),
+    direccion:document.getElementById('e-dir')?.value.trim(),
+    tasa:parseFloat(document.getElementById('e-tasa')?.value)||undefined,
+    tasa_mora:parseFloat(document.getElementById('e-mora')?.value)||1.5,
+    diapago:parseInt(document.getElementById('e-dia')?.value)||null,
+    num_pagare:document.getElementById('e-numpag')?.value.trim(),
+  };
+  const colabEl=document.getElementById('e-colab');
+  if(colabEl) updates.colaborador_email=colabEl.value.trim();
+  Object.keys(updates).forEach(k=>{ if(updates[k]===undefined||updates[k]==='')delete updates[k]; });
+  closeMo(); loading();
+  await sb.from('prestamos').update(updates).eq('id',id);
+  await loadPrestamos();
+  renderDet(id);
+}
+
+// ── EDITAR COLABORADOR ────────────────────────────────────
+function editarColab(email,nombre,porcentaje){
+  showMo('Editar colaborador',`
+    <div class="frow1 fg"><label>Nombre</label><input id="ec-nom" type="text" value="${nombre||''}"></div>
+    <div class="frow1 fg"><label>% comisión sobre capital vigente</label><input id="ec-pct" type="number" value="${porcentaje||''}" step="0.5" min="0" max="100"></div>
+    <div class="ibox">La comisión se calcula cada mes sobre el saldo vigente del préstamo.</div>
+  `,[{label:'Cancelar',action:'closeMo()',cls:'btn'},{label:'Guardar',action:`confEditarColab('${email}')`,cls:'btn btn-ac'}]);
+}
+async function confEditarColab(email){
+  const nom=document.getElementById('ec-nom')?.value.trim();
+  const pct=parseFloat(document.getElementById('ec-pct')?.value);
+  if(!nom||isNaN(pct)){alert('Completa los campos.');return}
+  closeMo(); loading();
+  await sb.from('colaboradores').update({nombre:nom,porcentaje:pct}).eq('email',email);
+  renderColabs();
 }
 
 // ── MODAL ─────────────────────────────────────────────────
