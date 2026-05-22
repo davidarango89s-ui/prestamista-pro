@@ -620,9 +620,10 @@ async function guardar(){
   const colabEl=document.getElementById('n-colab');
   const tipoEl=document.getElementById('n-tipo');
   const tipo=tipoEl&&tipoEl.value?tipoEl.value:'informal';
-  console.log('Tipo seleccionado:', tipo);
+  const bancoVisible=document.getElementById('n-banco-fields')?.style.display!=='none';
+  const tipoFinal=bancoVisible?'banco':tipo;
   let cuotaQ=0, montoPrimaB=0, dia1B=null, dia2B=null, scheduleB=null, nCuotasB=0;
-  if(tipo==='banco'){
+  if(tipoFinal==='banco'){
     const cuotaManual=parseFloat(document.getElementById('n-cuotaq')?.value)||0;
     nCuotasB=parseInt(document.getElementById('n-ncuotas')?.value)||48;
     montoPrimaB=parseFloat(document.getElementById('n-prima')?.value)||0;
@@ -651,7 +652,7 @@ async function guardar(){
     colaborador_email: S.isAdmin && colabEl ? colabEl.value.trim() : S.user.email,
     num_pagare: document.getElementById('n-numpag')?.value.trim()||String(S.prestamos.length+1).padStart(3,'0'),
     foto: fotoB64||'',
-    tipo_credito: tipo,
+    tipo_credito: tipoFinal,
     cuota_quincenal: cuotaQ||null,
     monto_prima: montoPrimaB||null,
     dia_pago1: dia1B||null,
@@ -1011,6 +1012,8 @@ function bancoCard(p){
     <div class="acts">
       <button class="btn btn-sm btn-gr" onclick="verSchedule('${p.id}')">Ver tabla de cuotas</button>
       ${proxima&&!proxima.pagada?`<button class="btn btn-sm btn-ac" onclick="pagarCuotaBanco('${p.id}',${proxima.num-1})">Pagar cuota #${proxima.num}</button>`:''}
+      <button class="btn btn-sm" onclick="editarBanco('${p.id}')">Editar</button>
+      <button class="btn btn-sm btn-red" onclick="eliminarBanco('${p.id}')">Eliminar</button>
     </div>
   </div>`;
 }
@@ -1155,6 +1158,68 @@ async function confEditarColab(email){
   closeMo(); loading();
   await sb.from('colaboradores').update({nombre:nom,porcentaje:pct}).eq('email',email);
   renderColabs();
+}
+ 
+// ── EDITAR / ELIMINAR BANCO ──────────────────────────────
+function editarBanco(id){
+  const p=getP(id); if(!p)return;
+  const sch=p.schedule?JSON.parse(p.schedule):[];
+  showMo('Editar crédito bancario',`
+    <div class="frow">
+      <div class="fg"><label>Nombre</label><input id="eb-nom" type="text" value="${p.nombre||''}"></div>
+      <div class="fg"><label>Cédula</label><input id="eb-cc" type="text" value="${p.cc||''}"></div>
+    </div>
+    <div class="frow">
+      <div class="fg"><label>Teléfono</label><input id="eb-tel" type="text" value="${p.telefono||''}"></div>
+      <div class="fg"><label>Dirección</label><input id="eb-dir" type="text" value="${p.direccion||''}"></div>
+    </div>
+    <div class="frow">
+      <div class="fg"><label>Tasa mensual (%)</label><input id="eb-tasa" type="number" value="${p.tasa||''}" step="0.5"></div>
+      <div class="fg"><label>Cuota quincenal (COP)</label><input id="eb-cuotaq" type="number" value="${p.cuota_quincenal||''}"></div>
+    </div>
+    <div class="frow">
+      <div class="fg"><label>Abono prima (COP)</label><input id="eb-prima" type="number" value="${p.monto_prima||''}"></div>
+      <div class="fg"><label>Núm. pagaré</label><input id="eb-numpag" type="text" value="${p.num_pagare||''}"></div>
+    </div>
+    <div class="ibox">Al cambiar la cuota o tasa se recalcula la tabla de amortización desde la cuota actual (${sch.filter(x=>!x.pagada).length} cuotas pendientes).</div>
+  `,[
+    {label:'Cancelar',action:'closeMo()',cls:'btn'},
+    {label:'Guardar cambios',action:`confEditarBanco('${id}')`,cls:'btn btn-ac'}
+  ]);
+}
+ 
+async function confEditarBanco(id){
+  const p=getP(id);
+  const nom=document.getElementById('eb-nom')?.value.trim();
+  const cc=document.getElementById('eb-cc')?.value.trim();
+  const tel=document.getElementById('eb-tel')?.value.trim();
+  const dir=document.getElementById('eb-dir')?.value.trim();
+  const tasa=parseFloat(document.getElementById('eb-tasa')?.value)||p.tasa;
+  const cuotaQ=parseFloat(document.getElementById('eb-cuotaq')?.value)||p.cuota_quincenal;
+  const prima=parseFloat(document.getElementById('eb-prima')?.value)||p.monto_prima||0;
+  const numpag=document.getElementById('eb-numpag')?.value.trim();
+  if(!nom||!cuotaQ){alert('Nombre y cuota son obligatorios.');return}
+  // Recalculate schedule keeping paid cuotas
+  const oldSch=p.schedule?JSON.parse(p.schedule):[];
+  const paidas=oldSch.filter(x=>x.pagada);
+  const ultimoSaldo=paidas.length>0?paidas[paidas.length-1].saldo:p.monto;
+  const ultimaFecha=paidas.length>0?paidas[paidas.length-1].fecha:p.fecha;
+  const newPendientes=generarAmortizacion(ultimoSaldo,tasa,ultimaFecha,cuotaQ,prima,p.dia_pago1||10,p.dia_pago2||25);
+  const newSch=[...paidas,...newPendientes.map((x,i)=>({...x,num:paidas.length+i+1}))];
+  const updates={nombre:nom,cc,telefono:tel,direccion:dir,tasa,cuota_quincenal:cuotaQ,monto_prima:prima,num_pagare:numpag,schedule:JSON.stringify(newSch)};
+  closeMo(); loading();
+  await sb.from('prestamos').update(updates).eq('id',id);
+  await loadPrestamos();
+  renderBanco();
+}
+ 
+async function eliminarBanco(id){
+  if(!confirm('¿Eliminar este crédito y todos sus pagos?'))return;
+  loading();
+  await sb.from('movimientos').delete().eq('prestamo_id',id);
+  await sb.from('prestamos').delete().eq('id',id);
+  await loadPrestamos();
+  renderBanco();
 }
  
 // ── MODAL ─────────────────────────────────────────────────
