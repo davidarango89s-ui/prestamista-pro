@@ -121,6 +121,12 @@ hr{border:none;border-top:1px solid var(--b1);margin:1.1rem 0}
 .spinner{width:16px;height:16px;border:2px solid var(--b2);border-top-color:var(--ac);border-radius:50%;animation:spin .7s linear infinite}
 @keyframes spin{to{transform:rotate(360deg)}}
 .tag-colab{font-size:10px;padding:2px 7px;background:rgba(200,240,96,.1);color:var(--ac);border-radius:4px;font-family:var(--mono)}
+.tag-banco{font-size:10px;padding:2px 7px;background:rgba(96,168,240,.1);color:var(--bl);border-radius:4px;font-family:var(--mono)}
+.tag-prima{font-size:10px;padding:2px 7px;background:rgba(240,160,64,.15);color:var(--yl);border-radius:4px;font-family:var(--mono)}
+.cuota-row{display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--b1);font-size:12px}
+.cuota-row:last-child{border-bottom:none}
+.cuota-paid{opacity:.45}
+.comprobante-thumb{width:36px;height:36px;border-radius:4px;object-fit:cover;border:1px solid var(--b1);cursor:pointer}
 @media(max-width:680px){.sidebar{display:none}.kv-g{grid-template-columns:repeat(2,1fr)}.frow{grid-template-columns:1fr}}
 </style>
 </head>
@@ -224,6 +230,11 @@ const slugify = s => s.toLowerCase().replace(/\s+/g,'_').replace(/[^a-z0-9_]/g,'
  
 // ── FINANCE ───────────────────────────────────────────────
 function getSaldo(p){
+  if(p.tipo_credito==='banco'){
+    const schedule=p.schedule?JSON.parse(p.schedule):[];
+    const last=schedule.filter(c=>c.pagada).pop();
+    return last?Math.max(0,last.saldo):parseFloat(p.monto)||0;
+  }
   let s = parseFloat(p.monto)||0;
   (p.movs||[]).filter(m=>m.tipo==='abono').forEach(m=>s-=parseFloat(m.monto)||0);
   return Math.max(0,s);
@@ -261,6 +272,7 @@ const NAVS_ADMIN = [
   {id:'cobros',label:'Cobros del mes', path:'M8 2v4M16 2v4M3 10h18M5 4h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z'},
   {id:'colabs',label:'Colaboradores',  path:'M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5s-3 1.34-3 3 1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z'},
   {id:'config',label:'Mi perfil',      path:'M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z'},
+  {id:'banco', label:'Créditos bancarios', path:'M2 7l10-5 10 5v2H2V7zm0 4h20v10H2V11zm4 2v6h2v-6H6zm5 0v6h2v-6h-2zm5 0v6h2v-6h-2z'},
 ];
 const NAVS_COLAB = [
   {id:'dash',  label:'Mis préstamos',  path:'M3 3h7v7H3zm11 0h7v7h-7zM3 14h7v7H3zm11 7v-7h7v7h-7z'},
@@ -397,6 +409,7 @@ async function nav(s){
   else if(s==='colabs') renderColabs();
   else if(s==='config') renderConfig();
   else if(s==='miscom') renderMisComisiones();
+  else if(s==='banco') renderBanco();
 }
  
 function setContent(html){ document.getElementById('content').innerHTML = html; }
@@ -456,6 +469,24 @@ function dcard(p){
 // ── NUEVO PRÉSTAMO ────────────────────────────────────────
 function renderNuevo(){
   setContent(`<div class="card">
+    <div class="frow1 fg" style="margin-bottom:1.1rem">
+      <label>Tipo de crédito</label>
+      <select id="n-tipo" onchange="toggleTipoCred()">
+        <option value="informal">Informal (solo intereses mensuales)</option>
+        <option value="banco">Bancario (cuotas fijas con amortización)</option>
+      </select>
+    </div>
+    <div id="n-banco-fields" style="display:none;background:var(--s2);border:1px solid var(--b1);border-radius:var(--rs);padding:1rem;margin-bottom:1rem">
+      <div class="frow">
+        <div class="fg"><label>Cuota quincenal (COP)</label><input id="n-cuotaq" type="number" placeholder="292000"></div>
+        <div class="fg"><label>Abono prima (COP)</label><input id="n-prima" type="number" placeholder="500000"></div>
+      </div>
+      <div class="frow">
+        <div class="fg"><label>Día pago 1 (ej: 10)</label><input id="n-dia1" type="number" placeholder="10" min="1" max="28"></div>
+        <div class="fg"><label>Día pago 2 (ej: 25)</label><input id="n-dia2" type="number" placeholder="25" min="1" max="28"></div>
+      </div>
+      <div class="ibox" style="margin-bottom:0">Los abonos de prima se aplican automáticamente en junio y diciembre.</div>
+    </div>
     <div style="display:flex;align-items:flex-start;gap:1.25rem;margin-bottom:1.1rem">
       <div>
         <div class="fg" style="margin-bottom:5px"><label>Foto</label></div>
@@ -497,6 +528,48 @@ function renderNuevo(){
   </div>`);
 }
  
+function generarAmortizacion(monto, tasaMensual, fechaInicio, cuotaQ, montoPrima, dia1, dia2){
+  const tq = (tasaMensual/100)/2;
+  const primasMeses = new Set(['06','12']);
+  function nextFechas(desde, num){
+    const fechas=[];
+    const d=new Date(desde+'T12:00:00');
+    // primera quincena: dia1 del siguiente mes
+    let cur=new Date(d.getFullYear(), d.getMonth()+1, dia1||10);
+    for(let i=0;i<num;i++){
+      fechas.push(cur.toISOString().split('T')[0]);
+      if(cur.getDate()===(dia1||10)) cur=new Date(cur.getFullYear(),cur.getMonth(),dia2||25);
+      else cur=new Date(cur.getFullYear(),cur.getMonth()+1,dia1||10);
+    }
+    return fechas;
+  }
+  const fechas=nextFechas(fechaInicio,72);
+  let saldo=monto;
+  const cuotas=[];
+  for(let i=0;i<fechas.length&&saldo>0;i++){
+    const fecha=fechas[i];
+    const mes=fecha.slice(5,7);
+    const diaF=parseInt(fecha.slice(8));
+    const esPrima=primasMeses.has(mes)&&diaF===(dia1||10);
+    const interes=Math.round(saldo*tq);
+    let capital=cuotaQ-interes;
+    if(capital<0)capital=0;
+    if(capital>saldo)capital=saldo;
+    saldo-=capital;
+    let prima=0;
+    if(esPrima&&saldo>0&&montoPrima>0){prima=Math.min(montoPrima,saldo);saldo-=prima;}
+    saldo=Math.max(0,saldo);
+    cuotas.push({num:i+1,fecha,interes,capital,cuota:interes+capital,prima,saldo,pagada:false,comprobante:null});
+  }
+  return cuotas;
+}
+ 
+function toggleTipoCred(){
+  const tipo=document.getElementById('n-tipo')?.value;
+  const bancoFields=document.getElementById('n-banco-fields');
+  if(bancoFields) bancoFields.style.display=tipo==='banco'?'block':'none';
+}
+ 
 function sugerirTasa(){
   const m=parseFloat(document.getElementById('n-monto')?.value)||0;
   const t=document.getElementById('n-tasa'); if(!t||t.value)return;
@@ -523,6 +596,14 @@ async function guardar(){
   const fecha=document.getElementById('n-fecha')?.value;
   if(!nom||!monto||!tasa||!fecha){alert('Nombre, monto, tasa y fecha son obligatorios.');return}
   const colabEl=document.getElementById('n-colab');
+  const tipoEl=document.getElementById('n-tipo');
+  const tipo=tipoEl?tipoEl.value:'informal';
+  const cuotaQ=tipo==='banco'?parseFloat(document.getElementById('n-cuotaq')?.value)||0:0;
+  const montoPrimaB=tipo==='banco'?parseFloat(document.getElementById('n-prima')?.value)||0:0;
+  const dia1B=tipo==='banco'?parseInt(document.getElementById('n-dia1')?.value)||10:null;
+  const dia2B=tipo==='banco'?parseInt(document.getElementById('n-dia2')?.value)||25:null;
+  const scheduleB=tipo==='banco'?generarAmortizacion(monto,tasa,fecha,cuotaQ,montoPrimaB,dia1B,dia2B):null;
+ 
   const row = {
     id: 'P'+Date.now(),
     nombre: nom,
@@ -534,7 +615,13 @@ async function guardar(){
     tasa_mora: parseFloat(document.getElementById('n-mora')?.value)||1.5,
     colaborador_email: S.isAdmin && colabEl ? colabEl.value.trim() : S.user.email,
     num_pagare: document.getElementById('n-numpag')?.value.trim()||String(S.prestamos.length+1).padStart(3,'0'),
-    foto: fotoB64||''
+    foto: fotoB64||'',
+    tipo_credito: tipo,
+    cuota_quincenal: cuotaQ||null,
+    monto_prima: montoPrimaB||null,
+    dia_pago1: dia1B||null,
+    dia_pago2: dia2B||null,
+    schedule: scheduleB?JSON.stringify(scheduleB):null
   };
   loading();
   const {error} = await sb.from('prestamos').insert([row]);
@@ -848,6 +935,131 @@ async function eliminarP(id){
   nav('lista');
 }
  
+ 
+// ── CRÉDITOS BANCARIOS ───────────────────────────────────
+function renderBanco(){
+  const bancos=S.prestamos.filter(p=>p.tipo_credito==='banco');
+  if(!bancos.length){setContent('<div class="empty">Sin créditos bancarios registrados.<br>Crea uno nuevo desde <strong>Nuevo préstamo</strong> seleccionando tipo "Bancario".</div>');return;}
+  setContent(bancos.map(p=>bancoCard(p)).join(''));
+}
+ 
+function bancoCard(p){
+  const schedule=p.schedule?JSON.parse(p.schedule):[];
+  const pagadas=schedule.filter(c=>c.pagada).length;
+  const pendientes=schedule.filter(c=>!c.pagada);
+  const proxima=pendientes[0];
+  const saldo=getSaldo(p);
+  const totalCuotas=schedule.length;
+  const pct=totalCuotas?Math.round(pagadas/totalCuotas*100):0;
+  return`<div class="dcard">
+    <div class="dh">
+      <div class="av">${p.foto?`<img src="${p.foto}" alt="">`:ini(p.nombre)}</div>
+      <div style="flex:1">
+        <div style="font-size:14px;font-weight:500">${p.nombre} <span class="tag-banco">Bancario</span></div>
+        <div style="font-size:11px;color:var(--t2);margin-top:2px;font-family:var(--mono)">${p.telefono||''} · #${p.num_pagare||'—'}</div>
+      </div>
+      ${statusBadge(p)}
+    </div>
+    <div class="kv-g" style="margin-bottom:10px">
+      <div><div class="kv-l">Capital inicial</div><div class="kv-v">${cop(p.monto)}</div></div>
+      <div><div class="kv-l">Saldo actual</div><div class="kv-v" style="color:var(--ac)">${cop(saldo)}</div></div>
+      <div><div class="kv-l">Cuota quincenal</div><div class="kv-v">${cop(p.cuota_quincenal||0)}</div></div>
+      <div><div class="kv-l">Cuotas pagadas</div><div class="kv-v">${pagadas}/${totalCuotas}</div></div>
+      <div><div class="kv-l">Abono prima</div><div class="kv-v" style="color:var(--yl)">${cop(p.monto_prima||0)}</div></div>
+      <div><div class="kv-l">Próxima cuota</div><div class="kv-v" style="font-size:11px">${proxima?fdate(proxima.fecha):'—'}</div></div>
+    </div>
+    <div style="background:var(--s2);border-radius:4px;height:4px;margin-bottom:6px">
+      <div style="background:var(--ac);height:4px;border-radius:4px;width:${pct}%"></div>
+    </div>
+    <div style="font-size:10px;color:var(--t3);font-family:var(--mono);margin-bottom:8px">${pct}% completado</div>
+    <div class="acts">
+      <button class="btn btn-sm btn-gr" onclick="verSchedule('${p.id}')">Ver tabla de cuotas</button>
+      ${proxima&&!proxima.pagada?`<button class="btn btn-sm btn-ac" onclick="pagarCuotaBanco('${p.id}',${proxima.num-1})">Pagar cuota #${proxima.num}</button>`:''}
+    </div>
+  </div>`;
+}
+ 
+function verSchedule(id){
+  const p=getP(id); if(!p)return;
+  const schedule=p.schedule?JSON.parse(p.schedule):[];
+  const rows=schedule.map((c,i)=>{
+    const esPrima=c.prima>0;
+    return`<div class="cuota-row ${c.pagada?'cuota-paid':''}">
+      <span style="min-width:24px;color:var(--t3);font-family:var(--mono);font-size:11px">#${c.num}</span>
+      <span style="flex:1;font-size:11px;color:var(--t2)">${fdate(c.fecha)}</span>
+      <span style="font-family:var(--mono);font-size:11px">${cop(c.cuota)}</span>
+      ${esPrima?`<span class="tag-prima">Prima +${cop(c.prima)}</span>`:''}
+      ${c.comprobante?`<img src="${c.comprobante}" class="comprobante-thumb" onclick="verComprobante('${id}',${i})" alt="comp">`:''}
+      ${c.pagada?'<span class="badge b-ok" style="font-size:9px">✓</span>':`<button class="btn btn-sm btn-ac" style="font-size:10px;padding:3px 8px" onclick="pagarCuotaBanco('${id}',${i})">Pagar</button>`}
+    </div>`;
+  }).join('');
+  const totalPend=schedule.filter(c=>!c.pagada).reduce((s,c)=>s+c.cuota+c.prima,0);
+  showMo(`Tabla de cuotas — ${p.nombre}`,`
+    <div class="ibox">Pendiente total: <strong style="color:var(--ac)">${cop(totalPend)}</strong></div>
+    <div style="max-height:320px;overflow-y:auto">${rows}</div>
+  `,[{label:'Cerrar',action:'closeMo()',cls:'btn'}]);
+}
+ 
+function pagarCuotaBanco(id, idx){
+  const p=getP(id); if(!p)return;
+  const schedule=JSON.parse(p.schedule||'[]');
+  const c=schedule[idx]; if(!c||c.pagada)return;
+  const esPrima=c.prima>0;
+  showMo(`Pagar cuota #${c.num}`,`
+    <div class="ibox">
+      Fecha: ${fdate(c.fecha)}<br>
+      Cuota: <strong style="color:var(--ac)">${cop(c.cuota)}</strong>
+      ${esPrima?`· Prima: <strong style="color:var(--yl)">${cop(c.prima)}</strong>`:''}
+      · Total: <strong>${cop(c.cuota+(c.prima||0))}</strong>
+    </div>
+    <div class="frow1 fg"><label>Fecha de pago</label><input id="m-f" type="date" value="${today()}"></div>
+    <div class="frow1 fg"><label>Comprobante (foto/imagen)</label>
+      <input type="file" id="comp-file" accept="image/*" onchange="previewComp(this)" style="background:var(--s2);border:1px solid var(--b1);border-radius:var(--rs);color:var(--tx);padding:6px">
+    </div>
+    <div id="comp-preview" style="margin-top:8px"></div>
+    <div class="frow1 fg"><label>Nota</label><input id="m-n" type="text" placeholder="Opcional"></div>
+  `,[{label:'Cancelar',action:'closeMo()',cls:'btn'},{label:'Confirmar pago',action:`confPagoCuota('${id}',${idx})`,cls:'btn btn-ac'}]);
+}
+ 
+let comprobanteB64=null;
+function previewComp(input){
+  const f=input.files[0]; if(!f)return;
+  const r=new FileReader();
+  r.onload=e=>{
+    comprobanteB64=e.target.result;
+    document.getElementById('comp-preview').innerHTML=`<img src="${comprobanteB64}" style="max-width:100%;max-height:120px;border-radius:var(--rs);border:1px solid var(--b1)">`;
+  };
+  r.readAsDataURL(f);
+}
+ 
+function verComprobante(id,idx){
+  const p=getP(id); if(!p)return;
+  const schedule=JSON.parse(p.schedule||'[]');
+  const c=schedule[idx]; if(!c?.comprobante)return;
+  showMo('Comprobante',`<img src="${c.comprobante}" style="width:100%;border-radius:var(--rs)">`,
+    [{label:'Cerrar',action:'closeMo()',cls:'btn'}]);
+}
+ 
+async function confPagoCuota(id,idx){
+  const fecha=document.getElementById('m-f')?.value;
+  const nota=document.getElementById('m-n')?.value||'';
+  if(!fecha){alert('Ingresa la fecha.');return}
+  const p=getP(id);
+  const schedule=JSON.parse(p.schedule||'[]');
+  schedule[idx].pagada=true;
+  schedule[idx].fechaPago=fecha;
+  schedule[idx].nota=nota;
+  if(comprobanteB64) schedule[idx].comprobante=comprobanteB64;
+  comprobanteB64=null;
+  // Registrar como movimiento normal también
+  const c=schedule[idx];
+  closeMo(); loading();
+  await sb.from('movimientos').insert([{id:'M'+Date.now(),prestamo_id:id,tipo:'cuota_banco',fecha,monto:c.cuota+(c.prima||0),nota:nota||`Cuota #${c.num}${c.prima>0?' + Prima':''}`}]);
+  await sb.from('prestamos').update({schedule:JSON.stringify(schedule)}).eq('id',id);
+  await loadPrestamos();
+  renderBanco();
+  setTimeout(()=>verSchedule(id),300);
+}
  
 // ── EDITAR PRÉSTAMO ───────────────────────────────────────
 function editarPrestamo(id){
