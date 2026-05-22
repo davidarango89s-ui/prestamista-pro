@@ -492,7 +492,7 @@ function renderNuevo(){
         <div class="fg"><label>Cuota calculada</label><input id="n-cuotacalc" type="text" readonly style="color:var(--ac);background:var(--bg);border-color:var(--b2)" placeholder="Ingresa plazo y monto"></div>
       </div>
       <div class="frow">
-        <div class="fg"><label>Día de pago 1 (ej: 10)</label><input id="n-dia1" type="number" placeholder="10" min="1" max="28"></div>
+        <div class="fg"><label>Fecha primera cuota *</label><input id="n-primera-cuota" type="date"></div>
         <div class="fg"><label>Día de pago 2 (ej: 25, solo si es quincenal)</label><input id="n-dia2" type="number" placeholder="25" min="1" max="28"></div>
       </div>
       <hr style="border-color:var(--b1);margin:.5rem 0">
@@ -551,7 +551,7 @@ function renderNuevo(){
   </div>`);
 }
  
-function generarAmortizacion(monto, tasaMensual, fechaInicio, cuotaQ, montoPrima, dia1, dia2, frec, abonoTipo, abonoMeses, plazoMeses){
+function generarAmortizacion(monto, tasaMensual, fechaInicio, cuotaQ, montoPrima, dia1, dia2, frec, abonoTipo, abonoMeses, plazoMeses, primeraCuota){
   frec = frec||15;
   abonoTipo = abonoTipo||'ninguno';
   abonoMeses = abonoMeses||[];
@@ -563,12 +563,14 @@ function generarAmortizacion(monto, tasaMensual, fechaInicio, cuotaQ, montoPrima
     const fechas=[];
     const d=new Date(desde+'T12:00:00');
     let cur;
-    if(frec===30){
+    if(primeraCuota){
+      // Usar fecha exacta de primera cuota
+      cur=new Date(primeraCuota+'T12:00:00');
+    } else if(frec===30){
       cur=new Date(d.getFullYear(),d.getMonth()+1,dia1||10);
     } else if(frec===15){
       cur=new Date(d.getFullYear(),d.getMonth()+1,dia1||10);
     } else {
-      // semanal
       cur=new Date(d.getTime()+7*24*60*60*1000);
     }
     for(let i=0;i<num;i++){
@@ -707,7 +709,9 @@ async function guardar(){
     }
     if(!cuotaQ||cuotaQ<=0){alert('Ingresa el plazo o la cuota manual.');return;}
     if(abonoTipoB==='ninguno')montoPrimaB=0;
-    scheduleB=generarAmortizacion(monto,tasa,fecha,cuotaQ,montoPrimaB,dia1B,dia2B,frecB,abonoTipoB,abonoMesesB,plazoB);
+    const primeraCuotaB=document.getElementById('n-primera-cuota')?.value||fecha;
+    dia1B=primeraCuotaB?parseInt(primeraCuotaB.slice(8))||10:10;
+    scheduleB=generarAmortizacion(monto,tasa,fecha,cuotaQ,montoPrimaB,dia1B,dia2B,frecB,abonoTipoB,abonoMesesB,plazoB,primeraCuotaB);
   }
  
   const row = {
@@ -728,7 +732,8 @@ async function guardar(){
     dia_pago1: dia1B||null,
     dia_pago2: dia2B||null,
     schedule: scheduleB?JSON.stringify(scheduleB):null,
-    diapago: frecB===30?dia1B:null
+    diapago: frecB===30?dia1B:null,
+    primera_cuota: document.getElementById('n-primera-cuota')?.value||null
   };
   loading();
   const {error} = await sb.from('prestamos').insert([row]);
@@ -1252,6 +1257,10 @@ function editarBanco(id){
       <div class="fg"><label>Abono prima (COP)</label><input id="eb-prima" type="number" value="${p.monto_prima||''}"></div>
       <div class="fg"><label>Núm. pagaré</label><input id="eb-numpag" type="text" value="${p.num_pagare||''}"></div>
     </div>
+    <div class="frow">
+      <div class="fg"><label>Fecha primera cuota</label><input id="eb-primera" type="date" value="${p.primera_cuota||''}"></div>
+      <div class="fg"></div>
+    </div>
     <div class="ibox">Al cambiar la cuota o tasa se recalcula la tabla de amortización desde la cuota actual (${sch.filter(x=>!x.pagada).length} cuotas pendientes).</div>
   `,[
     {label:'Cancelar',action:'closeMo()',cls:'btn'},
@@ -1349,4 +1358,3 @@ init();
 </script>
 </body>
 </html>
- 
