@@ -138,12 +138,13 @@ hr{border:none;border-top:1px solid var(--b1);margin:1.1rem 0}
   .met-v{font-size:17px}
   .dcard{padding:.9rem 1rem}
 }
-.mobile-nav{display:none;position:fixed;bottom:0;left:0;right:0;background:var(--s1);border-top:1px solid var(--b1);z-index:100;padding:6px 0 env(safe-area-inset-bottom,6px)}
+.mobile-nav{display:none;position:fixed;bottom:0;left:0;right:0;background:var(--s1);border-top:1px solid var(--b1);z-index:1000;padding:8px 0 12px}
 .mobile-nav-inner{display:flex;justify-content:space-around;align-items:center}
-.mobile-ni{display:flex;flex-direction:column;align-items:center;gap:2px;padding:6px 10px;cursor:pointer;color:var(--t2);font-size:9px;font-family:var(--mono);border:none;background:none;min-width:50px}
-.mobile-ni svg{width:20px;height:20px}
+.mobile-ni{display:flex;flex-direction:column;align-items:center;gap:3px;padding:4px 8px;cursor:pointer;color:var(--t2);font-size:9px;font-family:var(--mono);border:none;background:none;flex:1;-webkit-tap-highlight-color:transparent}
+.mobile-ni svg{width:22px;height:22px;stroke-width:1.6}
 .mobile-ni.on{color:var(--ac)}
-@media(max-width:680px){.mobile-nav{display:block}}
+.mobile-ni span{font-size:9px;white-space:nowrap}
+@media(max-width:680px){.mobile-nav{display:block}.content{padding-bottom:90px}}
 </style>
 </head>
 <body>
@@ -394,6 +395,9 @@ async function startApp(){
   document.getElementById('login-screen').style.display = 'none';
   document.getElementById('app-screen').style.display = 'flex';
   document.getElementById('user-pill').textContent = S.user.email + ' · salir';
+  // Show mobile nav
+  const mobileNav = document.getElementById('mobile-nav');
+  if(mobileNav) mobileNav.style.display = 'block';
   const navs = S.isAdmin ? NAVS_ADMIN : NAVS_COLAB;
   document.getElementById('sidebar-nav').innerHTML = navs.map(n=>`
     <div class="ni" id="nav-${n.id}" onclick="nav('${n.id}')">
