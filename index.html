@@ -417,13 +417,13 @@ function loading(){ setContent('<div class="loading"><div class="spinner"></div>
  
 // ── DASHBOARD ─────────────────────────────────────────────
 function renderDash(){
-  const act = S.prestamos.filter(p=>getSaldo(p)>0);
+  const act = S.prestamos.filter(p=>getSaldo(p)>0 && p.tipo_credito!=='banco');
   const totalCap = act.reduce((a,p)=>a+getSaldo(p),0);
   const totalInt = act.reduce((a,p)=>a+getInteres(p),0);
   const totalMora = act.reduce((a,p)=>a+getMora(p),0);
   const totalCob = S.prestamos.reduce((a,p)=>a+getInteresTotal(p),0);
-  const enMora = act.filter(p=>getMesesMora(p)>0).length;
-  const moraAlert = enMora ? `<div class="alert-r">⚠ En mora: ${act.filter(p=>getMesesMora(p)>0).map(p=>p.nombre).join(', ')}</div>` : '';
+  const enMora = act.filter(p=>getMesesMora(p)>0&&p.tipo_credito!=='banco').length;
+  const moraAlert = enMora ? `<div class="alert-r">⚠ En mora: ${act.filter(p=>getMesesMora(p)>0&&p.tipo_credito!=='banco').map(p=>p.nombre).join(', ')}</div>` : '';
   setContent(`
     <div class="mets">
       <div class="met"><div class="met-l">Capital en calle</div><div class="met-v" style="color:var(--ac)">${cop(totalCap)}</div><div class="met-s">${act.length} activos</div></div>
@@ -597,7 +597,8 @@ async function guardar(){
   if(!nom||!monto||!tasa||!fecha){alert('Nombre, monto, tasa y fecha son obligatorios.');return}
   const colabEl=document.getElementById('n-colab');
   const tipoEl=document.getElementById('n-tipo');
-  const tipo=tipoEl?tipoEl.value:'informal';
+  const tipo=tipoEl&&tipoEl.value?tipoEl.value:'informal';
+  console.log('Tipo seleccionado:', tipo);
   const cuotaQ=tipo==='banco'?parseFloat(document.getElementById('n-cuotaq')?.value)||0:0;
   const montoPrimaB=tipo==='banco'?parseFloat(document.getElementById('n-prima')?.value)||0:0;
   const dia1B=tipo==='banco'?parseInt(document.getElementById('n-dia1')?.value)||10:null;
@@ -651,17 +652,18 @@ function copiarPagare(){
  
 // ── LISTA ─────────────────────────────────────────────────
 function renderLista(){
+  const informales=S.prestamos.filter(p=>p.tipo_credito!=='banco');
   setContent(`
-    <p class="sec-t">Todos los deudores (${S.prestamos.length})</p>
-    ${S.prestamos.length ? S.prestamos.map(p=>dcard(p)).join('') : '<div class="empty">Sin préstamos registrados.</div>'}
+    <p class="sec-t">Todos los deudores (${informales.length})</p>
+    ${informales.length ? informales.map(p=>dcard(p)).join('') : '<div class="empty">Sin préstamos registrados.</div>'}
   `);
 }
  
 // ── COBROS ────────────────────────────────────────────────
 function renderCobros(){
   const t=today(); const[ay,am]=t.split('-').map(Number);
-  const filas=S.prestamos.filter(p=>{if(getSaldo(p)===0)return false;const pp=getProxPago(p);const[py,pm]=pp.split('-').map(Number);return py===ay&&pm===am;});
-  const moraExt=S.prestamos.filter(p=>{if(getSaldo(p)===0)return false;const[py,pm]=getProxPago(p).split('-').map(Number);return getMesesMora(p)>0&&!(py===ay&&pm===am);});
+  const filas=S.prestamos.filter(p=>{if(getSaldo(p)===0||p.tipo_credito==='banco')return false;const pp=getProxPago(p);const[py,pm]=pp.split('-').map(Number);return py===ay&&pm===am;});
+  const moraExt=S.prestamos.filter(p=>{if(getSaldo(p)===0||p.tipo_credito==='banco')return false;const[py,pm]=getProxPago(p).split('-').map(Number);return getMesesMora(p)>0&&!(py===ay&&pm===am);});
   const mesNom=new Date(t+'T12:00:00').toLocaleDateString('es-CO',{month:'long',year:'numeric'});
   const tot=filas.reduce((a,p)=>a+getInteres(p),0);
   let html=`<div class="mets">
