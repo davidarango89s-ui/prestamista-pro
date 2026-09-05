@@ -147,7 +147,7 @@ hr{border:none;border-top:1px solid var(--b1);margin:1.1rem 0}
 .mobile-more-item{display:flex;align-items:center;gap:12px;width:100%;padding:12px 1.5rem;background:none;border:none;color:var(--tx);font-size:14px;font-family:var(--sans);cursor:pointer;border-bottom:1px solid var(--b1);-webkit-tap-highlight-color:transparent}
 .mobile-more-item:last-child{border-bottom:none}
 .mobile-more-item:active{background:var(--s2)}
-@media(max-width:680px){.mobile-nav{display:block}.content{padding-bottom:90px}}
+@media(max-width:680px){.mobile-nav{display:block!important}.content{padding-bottom:90px}}
 </style>
 </head>
 <body>
@@ -400,7 +400,7 @@ async function startApp(){
   document.getElementById('user-pill').textContent = S.user.email + ' · salir';
   // Show mobile nav always
   const mobileNav = document.getElementById('mobile-nav');
-  if(mobileNav) mobileNav.style.display = 'block';
+  // mobile nav shown via CSS media query only
   const navs = S.isAdmin ? NAVS_ADMIN : NAVS_COLAB;
   document.getElementById('sidebar-nav').innerHTML = navs.map(n=>`
     <div class="ni" id="nav-${n.id}" onclick="nav('${n.id}')">
