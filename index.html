@@ -433,7 +433,7 @@ async function nav(s){
   const mni = document.getElementById('mnav-'+s); if(mni) mni.classList.add('on');
   document.getElementById('page-t').textContent = TITLES[s]||'';
   if(s==='dash') renderDash();
-  else if(s==='nuevo') renderNuevo();
+  else if(s==='nuevo'){ loading(); await renderNuevo(); }
   else if(s==='lista') renderLista();
   else if(s==='cobros') renderCobros();
   else if(s==='colabs') renderColabs();
@@ -469,7 +469,7 @@ function renderDash(){
 
 function dcard(p){
   const saldo=getSaldo(p), interes=getInteres(p), mora=getMora(p), prox=getProxPago(p);
-  const colabTag = p.colaborador_email ? `<span class="tag-colab">${p.colaborador_email.split('@')[0]}</span>` : '';
+  const colabTag = p.colaborador_email ? `<span class="tag-colab">${p.colaborador_email.split('@')[0]}${p.comision_pct?' · '+p.comision_pct+'%':''}</span>` : '';
   return `<div class="dcard">
     <div class="dh">
       <div class="av">${p.foto?`<img src="${p.foto}" alt="">`:ini(p.nombre)}</div>
@@ -497,7 +497,11 @@ function dcard(p){
 }
 
 // ── NUEVO PRÉSTAMO ────────────────────────────────────────
-function renderNuevo(){
+async function renderNuevo(){
+  if(S.isAdmin && !S.colabsList){
+    const {data}=await sb.from('colaboradores').select('*').eq('activo',true).order('nombre');
+    S.colabsList = data||[];
+  }
   setContent(`<div class="card">
     <div class="frow1 fg" style="margin-bottom:1.1rem">
       <label>Tipo de crédito</label>
@@ -570,7 +574,16 @@ function renderNuevo(){
     </div>
     <div class="frow">
       <div class="fg"><label>% mora mensual (vacío = 1.5%)</label><input id="n-mora" type="number" placeholder="1.5" step="0.5"></div>
-      ${S.isAdmin?'<div class="fg"><label>Email colaborador (opcional)</label><input id="n-colab" type="email" placeholder="colab@gmail.com"></div>':'<div></div>'}
+      ${S.isAdmin?`<div class="fg"><label>Colaborador (opcional)</label>
+        <select id="n-colab" onchange="toggleColabPct()">
+          <option value="">Sin colaborador</option>
+          ${(S.colabsList||[]).map(c=>`<option value="${c.email}">${c.nombre} (${c.email})</option>`).join('')}
+        </select>
+      </div>`:'<div></div>'}
+    </div>
+    <div id="n-colab-pct-wrap" style="display:none" class="frow1 fg">
+      <label>% comisión de este colaborador en este crédito</label>
+      <input id="n-colab-pct" type="number" placeholder="4" step="0.5" min="0" max="100">
     </div>
     <div class="frow1 fg"><label>Número de pagaré</label><input id="n-numpag" type="text" placeholder="${String(S.prestamos.length+1).padStart(3,'0')}"></div>
     <div id="n-prev" class="ibox" style="display:none"></div>
@@ -680,6 +693,12 @@ function toggleTipoCred(){
   if(bancoFields) bancoFields.style.display=tipo==='banco'?'block':'none';
 }
 
+function toggleColabPct(){
+  const sel=document.getElementById('n-colab');
+  const wrap=document.getElementById('n-colab-pct-wrap');
+  if(wrap) wrap.style.display=(sel&&sel.value)?'block':'none';
+}
+
 function toggleAbonoTipo(){
   const tipo=document.getElementById('n-abono-tipo')?.value;
   const montoWrap=document.getElementById('n-abono-monto-wrap');
@@ -715,6 +734,8 @@ async function guardar(){
   const fecha=document.getElementById('n-fecha')?.value;
   if(!nom||!monto||!tasa||!fecha){alert('Nombre, monto, tasa y fecha son obligatorios.');return}
   const colabEl=document.getElementById('n-colab');
+  const colabPctEl=document.getElementById('n-colab-pct');
+  const comisionPct=colabPctEl?parseFloat(colabPctEl.value)||null:null;
   const tipoEl=document.getElementById('n-tipo');
   const tipo=tipoEl&&tipoEl.value?tipoEl.value:'informal';
   const bancoVisible=document.getElementById('n-banco-fields')?.style.display!=='none';
@@ -763,7 +784,8 @@ async function guardar(){
     dia_pago2: dia2B||null,
     schedule: scheduleB?JSON.stringify(scheduleB):null,
     diapago: frecB===30?dia1B:null,
-    primera_cuota: document.getElementById('n-primera-cuota')?.value||null
+    primera_cuota: document.getElementById('n-primera-cuota')?.value||null,
+    comision_pct: comisionPct
   };
   loading();
   const {error} = await sb.from('prestamos').insert([row]);
@@ -904,18 +926,19 @@ function modalNuevoColab(){
   showMo('Nuevo colaborador',`
     <div class="frow1 fg"><label>Email de Google *</label><input id="c-email" type="email" placeholder="luisa@gmail.com"></div>
     <div class="frow1 fg"><label>Nombre *</label><input id="c-nom" type="text" placeholder="Luisa Martínez"></div>
-    <div class="frow1 fg"><label>% comisión sobre intereses *</label><input id="c-pct" type="number" placeholder="4" step="0.5" min="0" max="100"></div>
-    <div class="ibox">El colaborador entra con su cuenta Google al mismo link y ve solo sus préstamos.</div>
+    <div class="frow1 fg"><label>% comisión por defecto (opcional)</label><input id="c-pct" type="number" placeholder="4" step="0.5" min="0" max="100"></div>
+    <div class="ibox">Este porcentaje es solo un valor sugerido. Puedes definir un porcentaje distinto para cada crédito al asignárselo.</div>
   `,[{label:'Cancelar',action:'closeMo()',cls:'btn'},{label:'Agregar',action:'confirmarColab()',cls:'btn btn-ac'}]);
 }
 
 async function confirmarColab(){
   const email=document.getElementById('c-email')?.value.trim();
   const nom=document.getElementById('c-nom')?.value.trim();
-  const pct=parseFloat(document.getElementById('c-pct')?.value);
-  if(!email||!nom||isNaN(pct)){alert('Completa todos los campos.');return}
+  const pct=parseFloat(document.getElementById('c-pct')?.value)||0;
+  if(!email||!nom){alert('Completa nombre y email.');return}
   const {error}=await sb.from('colaboradores').insert([{email,nombre:nom,porcentaje:pct,activo:true}]);
   if(error){alert(error.message);return}
+  S.colabsList=null; // Force reload
   closeMo(); renderColabs();
 }
 
@@ -1010,11 +1033,16 @@ async function confInteres(id){
   // Calcular comisión
   const p=getP(id);
   if(p?.colaborador_email){
-    const {data:colab}=await sb.from('colaboradores').select('*').eq('email',p.colaborador_email).eq('activo',true).single();
-    if(colab?.porcentaje){
+    const pctUsar = p.comision_pct!=null ? p.comision_pct : null;
+    let pctFinal = pctUsar;
+    if(pctFinal==null){
+      const {data:colab}=await sb.from('colaboradores').select('*').eq('email',p.colaborador_email).eq('activo',true).single();
+      pctFinal = colab?.porcentaje || null;
+    }
+    if(pctFinal){
       const saldoActual=getSaldo(p);
-      const montoComision=Math.round(saldoActual*(colab.porcentaje/100));
-      await sb.from('comisiones').insert([{id:'C'+Date.now(),movimiento_id:movId,prestamo_id:id,colaborador_email:p.colaborador_email,monto_interes:saldoActual,porcentaje:colab.porcentaje,monto_comision:montoComision,pagada:false}]);
+      const montoComision=Math.round(saldoActual*(pctFinal/100));
+      await sb.from('comisiones').insert([{id:'C'+Date.now(),movimiento_id:movId,prestamo_id:id,colaborador_email:p.colaborador_email,monto_interes:saldoActual,porcentaje:pctFinal,monto_comision:montoComision,pagada:false}]);
     }
   }
   await loadPrestamos();
@@ -1226,7 +1254,7 @@ function editarPrestamo(id){
       <div class="fg"><label>Día de pago</label><input id="e-dia" type="number" value="${p.diapago||''}" min="1" max="31"></div>
       <div class="fg"><label>Núm. pagaré</label><input id="e-numpag" type="text" value="${p.num_pagare||''}"></div>
     </div>
-    ${S.isAdmin?`<div class="frow1 fg"><label>Email colaborador</label><input id="e-colab" type="email" value="${p.colaborador_email||''}"></div>`:''}
+    ${S.isAdmin?`<div class="frow"><div class="fg"><label>Email colaborador</label><input id="e-colab" type="email" value="${p.colaborador_email||''}"></div><div class="fg"><label>% comisión de este crédito</label><input id="e-colab-pct" type="number" value="${p.comision_pct||''}" step="0.5" min="0" max="100"></div></div>`:''}
   `,[{label:'Cancelar',action:'closeMo()',cls:'btn'},{label:'Guardar cambios',action:`confEditarPrestamo('${id}')`,cls:'btn btn-ac'}]);
 }
 async function confEditarPrestamo(id){
@@ -1242,6 +1270,8 @@ async function confEditarPrestamo(id){
   };
   const colabEl=document.getElementById('e-colab');
   if(colabEl) updates.colaborador_email=colabEl.value.trim();
+  const colabPctEl=document.getElementById('e-colab-pct');
+  if(colabPctEl) updates.comision_pct=parseFloat(colabPctEl.value)||null;
   Object.keys(updates).forEach(k=>{ if(updates[k]===undefined||updates[k]==='')delete updates[k]; });
   closeMo(); loading();
   await sb.from('prestamos').update(updates).eq('id',id);
